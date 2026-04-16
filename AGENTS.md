@@ -1,10 +1,8 @@
 # Agent Instructions
 
-## Product Direction
+Agent Memory Devtools is a local-first, debuggable, correctable memory layer for AI coding agents.
 
-Agent Memory Devtools is a debuggable, correctable memory system for AI coding agents. It should help developers answer what an agent remembered, why it remembered it, why it retrieved it, and how to fix memory behavior when it is wrong.
-
-Use the same terminology across code, docs, issues, and demos:
+Use the same product terms everywhere:
 
 - memory
 - feedback
@@ -15,41 +13,48 @@ Use the same terminology across code, docs, issues, and demos:
 - replay traces
 - Memory Fix Mode
 
-## Current Implemented Surface
+## Working In This Repo
 
-- `packages/memory-core` owns ingestion, retrieval, SQLite storage, feedback application, rules, missing-memory analysis, confidence reports, conflict detection, usage tracking, replay traces, and demo seed data.
-- `apps/api` exposes local Fastify routes for memory CRUD, ingest, search, feedback, rules, sessions, missing analysis, confidence, conflicts, usage, replay, stats, and demo seed.
-- `packages/cli` exposes init, ingest, search, list, session list, replay, seed, feedback, rules, fix shortcuts, missing analysis, confidence, and conflicts.
-- `apps/web` exposes Dashboard, Memory Explorer, Session Explorer, Replay Viewer, and Settings.
+- Keep SQLite as the source of truth and keep deterministic local behavior on the critical path.
+- Do not introduce hosted sync, auth, teams, or remote memory dependencies.
+- Use existing package boundaries and shared Zod schemas.
+- Document implemented behavior only.
 
-## Boundaries
+## Codex Workflow In This Repo
 
-- Do not describe hosted sync, teams, auth, remote vector databases, or production policy management as implemented.
-- Do not imply that the UI has full rule editing. Rules are exposed through API and CLI; the UI creates rules through feedback actions but does not yet provide a rule-management screen.
-- Do not imply that conflict resolution in the UI supports every API action. The UI currently supports detecting conflicts and dismissing visible conflicts; API/CLI support richer resolution actions.
-- Keep local-first behavior explicit: SQLite is the source of truth, and deterministic hash embeddings are the default.
+Codex does not have a native project hook lifecycle here. Do not pretend it does.
 
-## Development Workflow
+Supported path:
 
-Use existing package boundaries and shared Zod schemas. Keep changes scoped and add tests when behavior changes in `packages/memory-core`, API contracts, or cross-surface workflows.
+- automatic code-change capture through `npm run cli -- watch --tool codex`
+- explicit checkpoint capture through `npm run cli -- capture changes --tool codex --summary "..."`
+- replay and correction through the existing UI, CLI, feedback, and rules
 
-Useful commands:
+Use `.agents/skills/memory-capture/SKILL.md` when work should update memory.
+
+## Claude Code Workflow In This Repo
+
+Claude Code uses committed project hooks from `.claude/settings.json`.
+
+Hooks can capture:
+
+- durable user prompts
+- changed files after edit/write tools
+- task-complete summaries
+- end-of-turn assistant summaries
+
+Use `.claude/skills/memory-capture/SKILL.md` for the repo-specific workflow.
+
+## Read Next
+
+- `docs/automatic-memory.md`
+- `docs/codex-integration.md`
+- `docs/claude-code-integration.md`
+
+## Validation
 
 ```bash
 npm run build
 npm test
 npm run lint
-npm run cli -- dev:seed
-npm run cli -- search "typescript zod api"
 ```
-
-## Documentation Workflow
-
-Before updating docs, inspect the implementation. README, FEATURES, DEMO, ROADMAP, AGENTS, and CLAUDE instructions must use the same feature names and avoid future-tense promises unless they are listed in ROADMAP.
-
-When documenting new behavior, include:
-
-- what the feature does
-- what problem it solves
-- where it is exposed: core, API, CLI, UI, or tests
-- any partial implementation limits

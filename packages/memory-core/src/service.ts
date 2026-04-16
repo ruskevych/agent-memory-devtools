@@ -1,4 +1,7 @@
 import {
+  AutomationCaptureRequest,
+  AutomationCaptureRequestSchema,
+  AutomationCaptureResponse,
   DashboardStats,
   FeedbackTargetType,
   FeedbackType,
@@ -20,6 +23,7 @@ import {
   Session,
   SessionStep
 } from "@agent-memory/shared";
+import { AutomationPipeline } from "./automation.js";
 import { HashEmbeddingProvider } from "./embedding.js";
 import { computeConfidenceReport } from "./confidence.js";
 import { detectMemoryConflicts } from "./conflicts.js";
@@ -54,11 +58,13 @@ export interface FeedbackResult {
 
 export class MemoryService {
   private readonly ingestion: IngestionPipeline;
+  private readonly automation: AutomationPipeline;
   private readonly retrieval: RetrievalEngine;
 
   constructor(public readonly store: MemoryStore = new SqliteMemoryStore()) {
     const embeddings = new HashEmbeddingProvider();
     this.ingestion = new IngestionPipeline(store, embeddings);
+    this.automation = new AutomationPipeline(store, this.ingestion);
     this.retrieval = new RetrievalEngine(store, embeddings);
   }
 
@@ -68,6 +74,10 @@ export class MemoryService {
 
   ingest(input: IngestRequest): IngestResponse {
     return this.ingestion.ingest(IngestRequestSchema.parse(input));
+  }
+
+  captureAutomation(input: AutomationCaptureRequest): AutomationCaptureResponse {
+    return this.automation.capture(AutomationCaptureRequestSchema.parse(input));
   }
 
   search(input: SearchRequest): SearchResponse {

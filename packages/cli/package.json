@@ -11,6 +11,7 @@
     "dev": "npm run build -w @agent-memory/shared && npm run build -w @agent-memory/memory-core && tsx src/index.ts",
     "dev:seed": "npm run dev -- dev:seed",
     "build": "tsc -p tsconfig.json",
+    "test": "npm run build -w @agent-memory/shared && npm run build -w @agent-memory/memory-core && vitest run",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "tsx": "^4.19.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
   }
 }

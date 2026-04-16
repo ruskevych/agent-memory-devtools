@@ -1,6 +1,6 @@
 import cors from "@fastify/cors";
 import Fastify, { FastifyInstance } from "fastify";
-import { IngestRequestSchema, MemoryRuleSchema, MemorySchema, SearchRequestSchema } from "@agent-memory/shared";
+import { AutomationCaptureRequestSchema, IngestRequestSchema, MemoryRuleSchema, MemorySchema, SearchRequestSchema } from "@agent-memory/shared";
 import { defaultDbPath, MemoryService, seedDemoData, SqliteMemoryStore } from "@agent-memory/memory-core";
 
 export interface ApiOptions {
@@ -195,6 +195,11 @@ export function createApp(options: ApiOptions = {}): FastifyInstance {
 
   app.post("/ingest", async (request, reply) => {
     const result = service.ingest(IngestRequestSchema.parse(request.body));
+    return reply.code(201).send(result);
+  });
+
+  app.post("/automation/capture", async (request, reply) => {
+    const result = service.captureAutomation(AutomationCaptureRequestSchema.parse(request.body));
     return reply.code(201).send(result);
   });
 

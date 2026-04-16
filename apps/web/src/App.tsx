@@ -28,7 +28,7 @@ const sampleQueries = ["typescript zod api", "remember repo preferences", "unres
 
 export function App(): ReactElement {
   const [api] = useState(() => new ApiClient());
-  const [page, setPage] = useState<Page>("dashboard");
+  const [page, setPageState] = useState<Page>("dashboard");
   const [status, setStatus] = useState<"checking" | "online" | "offline">("checking");
   const [message, setMessage] = useState("");
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -48,6 +48,11 @@ export function App(): ReactElement {
   const [tag, setTag] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [apiUrl, setApiUrl] = useState(api.baseUrl);
+
+  const setPage = (newPage: Page) => {
+    setPageState(newPage);
+    setMessage("");
+  };
 
   async function refresh(): Promise<void> {
     try {
@@ -690,6 +695,7 @@ function MemoryExplorer(props: {
                         <strong>{memory.summary}</strong>
                         <small>{memory.content}</small>
                         <StateBadges memory={memory} />
+                        <AutomationBadge memory={memory} />
                         <ConfidenceBadge memory={memory} conflicts={props.conflicts} />
                       </td>
                       <td>
@@ -734,6 +740,7 @@ function MemoryExplorer(props: {
                 <div>
                   <KindChip kind={props.selected.kind} />
                   <h2>{props.selected.summary}</h2>
+                  {isAutomaticMemory(props.selected) ? <p className="muted-copy">{automationSummary(props.selected)}</p> : null}
                 </div>
                 <StateBadges memory={props.selected} />
               </div>
@@ -746,6 +753,7 @@ function MemoryExplorer(props: {
 
               <ExplanationCard title="Why this memory exists" tone="strong">
                 <p>{decisionReason(props.selected)}</p>
+                {isAutomaticMemory(props.selected) ? <p>{automationSummary(props.selected)}</p> : null}
                 <div className="explain-facts">
                   <MiniStat label="Confidence" value={props.selected.confidence.toFixed(2)} />
                   <MiniStat label="Importance" value={props.selected.importance.toFixed(2)} />
@@ -827,6 +835,10 @@ function MemoryExplorer(props: {
                 <dl>
                   <dt>ID</dt><dd>{props.selected.id}</dd>
                   <dt>Source</dt><dd>{sourceLabel(props.selected)}</dd>
+                  <dt>Capture</dt><dd>{isAutomaticMemory(props.selected) ? automationSource(memoryOrigin(props.selected)) : "manual or transcript ingest"}</dd>
+                  <dt>Trigger</dt><dd>{automationTrigger(props.selected) ?? "none"}</dd>
+                  <dt>Origin</dt><dd>{memoryOrigin(props.selected) ?? "session transcript"}</dd>
+                  <dt>Evidence</dt><dd>{evidenceFiles(props.selected).join(", ") || "none"}</dd>
                   <dt>Session</dt><dd>{props.selected.relatedSessionId ?? "none"}</dd>
                   <dt>Created</dt><dd>{formatDate(props.selected.timestamp)}</dd>
                 </dl>
@@ -1201,6 +1213,11 @@ function StateBadges({ memory }: { memory: Memory }): ReactElement {
   );
 }
 
+function AutomationBadge({ memory }: { memory: Memory }): ReactElement | null {
+  if (!isAutomaticMemory(memory)) return null;
+  return <span className="pill">automatic</span>;
+}
+
 function Score({ value }: { value: number }): ReactElement {
   return <span className="score">{value.toFixed(3)}</span>;
 }
@@ -1234,6 +1251,8 @@ function TraceSummary({ trace }: { trace: ReplayTrace }): ReactElement {
   const stored = trace.decisions.filter((decision) => decision.action === "store").length;
   const ignored = trace.decisions.filter((decision) => decision.action === "ignore").length;
   const merged = trace.decisions.filter((decision) => decision.action === "merge").length;
+  const acceptedEvents = metadataList(trace.metadata, "acceptedEventIds").length;
+  const ignoredEvents = metadataList(trace.metadata, "ignoredEventIds").length;
   return (
     <section className="trace-summary">
       {trace.type === "retrieval" ? (
@@ -1247,6 +1266,8 @@ function TraceSummary({ trace }: { trace: ReplayTrace }): ReactElement {
           <MiniStat label="Stored" value={stored} />
           <MiniStat label="Ignored" value={ignored} />
           <MiniStat label="Merged" value={merged} />
+          {trace.metadata?.automatic ? <MiniStat label="Auto accepted" value={acceptedEvents} /> : null}
+          {trace.metadata?.automatic ? <MiniStat label="Auto ignored" value={ignoredEvents} /> : null}
         </>
       )}
     </section>
@@ -1318,6 +1339,7 @@ function TraceTeaser({ traces, empty }: { traces: ReplayTrace[]; empty: string }
 
 function stageItemTitle(row: Record<string, unknown>, index: number): string {
   if (typeof row.action === "string") return row.action;
+  if (typeof row.type === "string") return row.type;
   if (typeof row.kind === "string") return row.kind;
   if (typeof row.memoryId === "string") return row.memoryId;
   if (typeof row.id === "string") return row.id;
@@ -1326,6 +1348,7 @@ function stageItemTitle(row: Record<string, unknown>, index: number): string {
 
 function stageItemDetail(row: Record<string, unknown>): string {
   if (typeof row.reason === "string") return row.reason;
+  if (typeof row.summary === "string") return row.summary;
   if (typeof row.content === "string") return row.content;
   if (typeof row.score === "number") return `score ${row.score.toFixed(3)}`;
   return Object.entries(row)
@@ -1338,6 +1361,34 @@ function sourceLabel(memory: Memory): string {
   return [memory.source.agent ?? "unknown", memory.source.type, memory.source.label].filter(Boolean).join(" / ");
 }
 
+function isAutomaticMemory(memory: Memory): boolean {
+  return memory.source.type === "hook" || memory.source.type === "automation" || memory.source.metadata?.automatic === true;
+}
+
+function automationTrigger(memory: Memory): string | undefined {
+  const value = memory.metadata?.automationTrigger ?? memory.source.metadata?.trigger;
+  return typeof value === "string" ? value : undefined;
+}
+
+function memoryOrigin(memory: Memory): string | undefined {
+  const value = memory.metadata?.sourceEventType;
+  return typeof value === "string" ? value : undefined;
+}
+
+function automationSource(origin: string | undefined): string {
+  return origin ?? "automatic workflow";
+}
+
+function automationSummary(memory: Memory): string {
+  const parts = [memory.source.agent ?? "agent", automationTrigger(memory), memoryOrigin(memory)].filter(Boolean);
+  return `Automatic capture from ${parts.join(" / ")}.`;
+}
+
+function evidenceFiles(memory: Memory): string[] {
+  const value = memory.metadata?.filePaths;
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
 function decisionReason(memory: Memory): string {
   const reason = memory.metadata?.decisionReason;
   return typeof reason === "string" ? reason : "Stored as durable context from an ingested agent session.";
@@ -1345,6 +1396,11 @@ function decisionReason(memory: Memory): string {
 
 function mergedIds(memory: Memory): string[] {
   const value = memory.metadata?.mergedDuplicateIds;
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function metadataList(metadata: Record<string, unknown> | undefined, key: string): string[] {
+  const value = metadata?.[key];
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 

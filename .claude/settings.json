@@ -1,0 +1,70 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-memory-hook.mjs\" user-prompt",
+            "async": true,
+            "timeout": 20,
+            "statusMessage": "Capturing durable prompt memory"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-memory-hook.mjs\" post-tool",
+            "async": true,
+            "timeout": 10,
+            "statusMessage": "Tracking changed files for memory capture"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-memory-hook.mjs\" stop",
+            "async": true,
+            "timeout": 20,
+            "statusMessage": "Capturing automatic memory summary"
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-memory-hook.mjs\" task-complete",
+            "async": true,
+            "timeout": 20,
+            "statusMessage": "Capturing completed task memory"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/agent-memory-hook.mjs\" session-end",
+            "async": true,
+            "timeout": 10,
+            "statusMessage": "Flushing pending memory capture"
+          }
+        ]
+      }
+    ]
+  }
+}

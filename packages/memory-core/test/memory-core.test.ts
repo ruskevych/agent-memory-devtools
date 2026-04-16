@@ -49,6 +49,97 @@ assistant: ok`,
   });
 });
 
+describe("automatic capture", () => {
+  it("captures durable automation events and annotates replay traces", () => {
+    const local = makeService();
+    const result = local.captureAutomation({
+      source: { type: "hook", agent: "claude-code", label: "Claude Code automatic capture" },
+      session: { agent: "claude-code" },
+      events: [
+        {
+          type: "user-prompt",
+          tool: "claude-code",
+          trigger: "hook",
+          content: "Prefer capturing durable prompt instructions and codebase changes as local memory in this repo."
+        },
+        {
+          type: "file-change",
+          tool: "claude-code",
+          trigger: "hook",
+          files: [
+            {
+              path: "apps/api/src/app.ts",
+              summary: "Updated Fastify API routes for /automation/capture.",
+              metadata: { hash: "hash_api_capture" }
+            }
+          ]
+        }
+      ]
+    });
+
+    expect(result.acceptedEventIds).toHaveLength(2);
+    expect(result.trace.stages[0].name).toBe("automation-events");
+    expect(result.trace.stages[1].name).toBe("automation-filtering");
+    expect(result.stored.some((memory) => memory.source.type === "hook")).toBe(true);
+    expect(result.stored.some((memory) => memory.metadata.sourceEventType === "user-prompt")).toBe(true);
+  });
+
+  it("ignores low-signal automation events but still writes an auditable trace", () => {
+    const local = makeService();
+    const result = local.captureAutomation({
+      source: { type: "hook", agent: "claude-code" },
+      events: [{ type: "agent-summary", tool: "claude-code", trigger: "hook", content: "done" }]
+    });
+
+    expect(result.acceptedEventIds).toHaveLength(0);
+    expect(result.ignoredEventIds).toHaveLength(1);
+    expect(result.session).toBeUndefined();
+    expect(result.trace.stages[1].name).toBe("automation-filtering");
+  });
+
+  it("dedupes repeated automation capture fingerprints", () => {
+    const local = makeService();
+    const first = local.captureAutomation({
+      source: { type: "automation", agent: "codex" },
+      events: [
+        {
+          type: "file-change",
+          tool: "codex",
+          trigger: "watch",
+          files: [
+            {
+              path: "packages/cli/src/index.ts",
+              summary: "Updated CLI commands for integrate, capture, and watch.",
+              metadata: { hash: "same_hash" }
+            }
+          ]
+        }
+      ]
+    });
+    const second = local.captureAutomation({
+      source: { type: "automation", agent: "codex" },
+      events: [
+        {
+          type: "file-change",
+          tool: "codex",
+          trigger: "watch",
+          files: [
+            {
+              path: "packages/cli/src/index.ts",
+              summary: "Updated CLI commands for integrate, capture, and watch.",
+              metadata: { hash: "same_hash" }
+            }
+          ]
+        }
+      ]
+    });
+
+    expect(first.acceptedEventIds).toHaveLength(1);
+    expect(second.acceptedEventIds).toHaveLength(0);
+    expect(second.captureDecisions[0]?.metadata.deduped).toBe(true);
+  });
+});
+
 describe("retrieval", () => {
   it("ranks pinned important memories above weaker matches and explains the score", () => {
     const local = makeService();

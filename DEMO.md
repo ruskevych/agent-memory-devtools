@@ -1,6 +1,6 @@
 # Demo Script
 
-Use this 2-3 minute walkthrough to show Agent Memory Devtools as a debuggable, correctable memory system for AI coding agents.
+Use this 2-3 minute walkthrough to show Agent Memory Devtools as a real local memory layer for Codex and Claude Code.
 
 ## Setup
 
@@ -17,7 +17,7 @@ Terminal 2:
 npm run dev:web
 ```
 
-Terminal 3:
+Optional demo seed:
 
 ```bash
 npm run cli -- dev:seed
@@ -25,129 +25,101 @@ npm run cli -- dev:seed
 
 Open `http://127.0.0.1:5173`.
 
-## Product Walkthrough
+## Demo Path
 
-### 1. Start with the Dashboard
+### 1. Show The Product Surface
 
-Show that the project is local-first and inspectable:
+Start on the Dashboard and explain:
 
-- active, pinned, archived, low-confidence, reinforced, and conflicted memory counts
-- memory counts by kind
-- recent sessions and replay traces
-- duplicate and merge health
-- retrieval activity
+- memories are local SQLite records
+- replay traces are first-class
+- correction happens through feedback and rules
+- automatic capture is visible, not hidden
 
-If the database is empty, click **Load Demo Data**.
+### 2. Show A Codex-Compatible Flow
 
-### 2. Search Memory
+In a terminal:
 
-Open **Memory Explorer** and search:
-
-```text
-typescript zod api
+```bash
+npm run cli -- integrate codex
+npm run cli -- capture changes --tool codex --summary "Added automation capture routes and CLI integration commands."
 ```
 
-Select the top result and show:
+Then show:
 
-- memory kind, tags, source, session, and state badges
-- why the memory exists
-- why it was retrieved
-- keyword, local semantic, recency, importance, pinned, and source score components
+- the returned trace id
+- the Replay Viewer stages
+- the stored memory source showing automatic capture and file-change origin
 
-### 3. Inspect Confidence
+### 3. Show A Claude-Compatible Flow
 
-In the selected memory detail panel, show the **Confidence** card:
+In a terminal:
 
-- label and confidence score
-- component breakdown
-- usage count
-- conflict count
+```bash
+npm run cli -- integrate claude
+npm run cli -- hooks status
+```
 
-Click **Recompute** to show that confidence can be refreshed after usage, feedback, or conflict changes.
+Explain that the repo ships committed project hooks in `.claude/settings.json`, then point out:
 
-### 4. Fix a Memory
+- durable prompts can be captured automatically
+- changed files are aggregated during the turn
+- stop/task-complete summaries can become memory automatically
 
-Use the **Fix Memory** controls on the selected memory:
+### 4. Inspect Memory Explorer
 
-1. Click **Boost importance** or **Lower importance**.
-2. Point out that feedback is applied and appears in feedback history.
-3. Explain that applied feedback can create deterministic rules for future ingestion or dedupe behavior.
+Search for:
 
-Optional CLI equivalent:
+```text
+automation capture
+```
+
+Show:
+
+- memory kind
+- automatic badge
+- source type and trigger
+- origin event type such as `user-prompt` or `file-change`
+- evidence file paths when present
+
+### 5. Open Replay Viewer
+
+Select the latest ingestion trace and show the automation-specific stages:
+
+- `automation-events`
+- `automation-filtering`
+- normal ingestion stages such as classification and dedupe/storage
+
+Point out that ignored automatic events are visible in replay instead of disappearing silently.
+
+### 6. Correct A Bad Capture
+
+From Memory Explorer or the CLI:
 
 ```bash
 npm run cli -- fix forget <memory-id> --rule
-npm run cli -- feedback list --status applied
-npm run cli -- rule list
 ```
 
-### 5. Open a Replay Trace
+Then explain:
 
-Open **Replay** and select the latest retrieval trace. Show:
+- feedback is stored
+- future behavior can change through rules
+- automatic capture stays auditable and correctable
 
-- candidate filtering
-- ranking stage
-- matched terms
-- score components
-- ranked results
+## Manual Verification Checklist
 
-Then select an ingestion trace and show:
+### Codex
 
-- input normalization
-- chunking
-- classification
-- rule application, if rules exist
-- store, ignore, and merge decisions
+- `npm run cli -- watch --tool codex` starts successfully
+- `capture changes` produces a replay trace
+- Memory Explorer shows automatic source metadata
 
-For an ignored decision, click **Remember this** to create a memory from the trace.
+### Claude Code
 
-### 6. Run Missing Memory Analysis
+- `/hooks` shows the project hooks
+- a meaningful prompt or edit produces an automation trace
+- replay shows accepted and ignored automatic events
 
-Open **Session Explorer**, select a session, and click **Analyze missing memories**.
+## Close
 
-Show each suggestion:
-
-- suggested kind and score
-- reason
-- evidence snippets
-- possible existing coverage
-
-Click **Accept** on one suggestion, then open **Memory Explorer** and confirm the accepted suggestion appears as a memory with confidence and source metadata. Use **Dismiss** for suggestions that should not become memory.
-
-### 7. Check Conflicts
-
-Back in **Memory Explorer**, click **Detect conflicts** from the confidence panel. If conflicts appear, show:
-
-- conflicted confidence label
-- conflict summary and severity
-- dismiss action in the UI
-
-CLI equivalents:
-
-```bash
-npm run cli -- conflicts detect
-npm run cli -- conflicts list
-npm run cli -- confidence show <memory-id>
-```
-
-## API Snapshot
-
-Run a search and copy the returned trace ID into the Replay Viewer:
-
-```bash
-curl -X POST http://127.0.0.1:4317/search \
-  -H "content-type: application/json" \
-  -d '{"query":"unresolved task","limit":5}'
-```
-
-Analyze a session for missed memories:
-
-```bash
-curl -X POST http://127.0.0.1:4317/sessions/<session-id>/analyze-missing \
-  -H "content-type: application/json" \
-  -d '{"refresh":true,"limit":8}'
-```
-
-## Closing Message
-
-This is not just memory retrieval. It is local agent memory you can inspect, correct, replay, and keep honest.
+This is not just retrieval. It is local agent memory with automatic capture, replay traces, and a correction loop that developers can trust.

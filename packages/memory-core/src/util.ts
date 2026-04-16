@@ -97,6 +97,10 @@ export function hashNumber(input: string): number {
   return hash.readUInt32BE(0) / 0xffffffff;
 }
 
+export function hashText(input: string): string {
+  return createHash("sha256").update(input).digest("hex");
+}
+
 export function defaultDataDir(): string {
   return process.env.AGENT_MEMORY_HOME ?? join(homedir(), ".agent-memory");
 }

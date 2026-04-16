@@ -1,77 +1,67 @@
 # Features
 
-Agent Memory Devtools is a debuggable, correctable memory system for AI coding agents. It is built around one practical promise: developers should be able to see, fix, replay, and trust what an agent remembers.
-
-## What Makes This Different
-
-This is not just memory storage.
-
-It is:
-
-- a debugger for agent memory
-- a correction loop for broken memory behavior
-- a way to make agents more predictable over time
-- a local devtool for inspecting the state agents usually hide
+Agent Memory Devtools is a debuggable, correctable memory system for AI coding agents. The product is built around a simple promise: developers should be able to see what the agent remembered, why it remembered it, why it retrieved it, and how to fix it.
 
 ## Core Memory System
 
-| Feature | What it does | Problem it solves |
+| Feature | What it does | Exposed in |
 | --- | --- | --- |
-| Local SQLite store | Stores memories, sessions, steps, events, facts, embeddings, traces, feedback, rules, suggestions, usage, and conflicts in SQLite. | Keeps agent memory inspectable and portable without a hosted service. |
-| Session ingestion | Accepts raw transcripts or structured JSON steps, normalizes them into sessions and timeline steps, and records source metadata. | Turns agent runs into durable context with traceable provenance. |
-| Memory classification | Classifies candidates as `fact`, `preference`, `event`, `task-context`, `codebase-context`, or `summary`. | Gives developers useful categories for filtering, review, and retrieval. |
-| Importance and confidence scoring | Assigns initial importance and confidence during ingestion. | Separates durable project context from low-value session noise. |
-| Dedupe and merge tracking | Detects near-duplicate memories, archives merged duplicates, and records canonical relationships. | Reduces repeated preferences and noisy handoff notes without deleting history. |
-| Mutations | Records create, update, pin, archive, restore, delete, and merge operations. | Makes memory edits auditable. |
+| Local SQLite store | Stores memories, sessions, steps, events, feedback, rules, suggestions, usage, conflicts, and replay traces. | core, API, CLI, UI |
+| Deterministic ingestion | Classifies durable context into `fact`, `preference`, `event`, `task-context`, `codebase-context`, and `summary`. | core, API, CLI, UI |
+| Dedupe and merge tracking | Merges near-duplicate memories while preserving audit history. | core, API, CLI, UI |
+| Explainable retrieval | Ranks with keyword, deterministic local semantic, recency, importance, pinned, and same-session signals. | core, API, CLI, UI |
 
-## Debugging and Replay
+## Automatic Memory Capture
 
-| Feature | What it does | Problem it solves |
+| Feature | What it does | Exposed in |
 | --- | --- | --- |
-| Ingestion traces | Show normalization, chunking, classification, rule application, dedupe, storage, ignored candidates, and merge outcomes. | Explains why a memory was stored, ignored, or merged. |
-| Retrieval traces | Show candidate filtering, ranking stages, matched terms, score components, and ordered results. | Explains why a memory appeared for a query. |
-| Replay Viewer | Displays ingestion and retrieval traces in the web UI with pipeline stages and decision cards. | Makes memory behavior easy to debug and demo. |
-| CLI replay | Prints trace stages and ranked results with `npm run cli -- replay <trace-id>` or the installed `agent-memory` binary. | Gives terminal users a fast way to inspect memory decisions. |
+| Automation event schema | Accepts prompt, summary, file-change, task-complete, and session-checkpoint events. | shared, core, API, CLI |
+| Automation capture pipeline | Filters noisy events, dedupes repeated captures, and routes accepted events into the existing ingestion path. | core, API, CLI |
+| Automatic source metadata | Marks memories as automatic and records the tool, trigger, and origin event type. | core, UI |
+| Automation replay stages | Adds `automation-events` and `automation-filtering` stages ahead of normal ingestion stages. | core, UI, CLI |
+| Code-change-derived capture | Turns meaningful changed files into codebase-context candidates without external APIs. | CLI, core |
+
+## Codex Compatibility
+
+| Feature | What it does | Exposed in |
+| --- | --- | --- |
+| Short repo instructions | `AGENTS.md` explains the supported Codex path without claiming fake native hooks. | repo instructions |
+| Codex memory skill | `.agents/skills/memory-capture/SKILL.md` tells Codex when and how to update memory. | repo skills |
+| Watch mode | `agent-memory watch --tool codex` provides the strongest automatic file-change capture path available for Codex in this repo. | CLI |
+| Checkpoint capture | `capture changes` and `capture session` let Codex record durable summaries explicitly at meaningful checkpoints. | CLI |
+
+## Claude Code Compatibility
+
+| Feature | What it does | Exposed in |
+| --- | --- | --- |
+| Project hook config | `.claude/settings.json` commits the supported hook path for this repo. | repo config |
+| Hook helper | `.claude/hooks/agent-memory-hook.mjs` captures durable prompts immediately, tracks changed files, and flushes summaries at stop/task boundaries. | repo hooks |
+| Claude memory skill | `.claude/skills/memory-capture/SKILL.md` explains what is automatic and what stays explicit. | repo skills |
+| Hook visibility | `hooks status` and `integrate claude` show whether the expected files are present. | CLI |
 
 ## Memory Fix Mode
 
-| Feature | What it does | Problem it solves |
+| Feature | What it does | Exposed in |
 | --- | --- | --- |
-| Structured feedback | Stores feedback for memories, decisions, session steps, and retrieval results. | Captures corrections as first-class data instead of one-off edits. |
-| Apply feedback | Applies `should-remember`, `should-not-remember`, duplicate, wrong-kind, wrong-content, wrong-summary, wrong-tags, wrong-merge, and importance corrections. | Lets developers repair bad memory behavior directly. |
-| Feedback-derived rules | Optionally creates ingestion or dedupe rules from applied feedback. | Prevents repeated mistakes in future ingestions. |
-| UI fix controls | Memory Explorer can boost/lower importance, archive unwanted memories, change kind, merge duplicates, recompute confidence, detect conflicts, and dismiss conflicts. | Puts common correction actions next to the memory being inspected. |
-| Replay fixes | Replay Viewer can turn ignored decisions into memories and repair wrong merge decisions. | Makes trace debugging actionable. |
-| CLI fix shortcuts | `fix remember`, `fix forget`, and `fix duplicate` apply common corrections from the terminal. | Supports correction workflows without opening the UI. |
+| Structured feedback | Stores corrections for memories, decisions, session steps, and retrieval results. | core, API, CLI, UI |
+| Feedback-derived rules | Lets corrections change future ingestion or dedupe behavior. | core, API, CLI, UI-created rules |
+| Replay fixes | Replay Viewer can promote ignored decisions into memory and repair wrong merges. | UI |
 
-## Missing Memory Analysis
+## Missing Memory Analysis, Confidence, and Conflicts
 
-| Feature | What it does | Problem it solves |
+| Feature | What it does | Exposed in |
 | --- | --- | --- |
-| Session analysis | Scans a session for durable preferences, unresolved tasks, codebase context, factual statements, repeated concepts, and recoverable ignored decisions. | Finds useful context that ingestion may have missed. |
-| Evidence-backed suggestions | Each suggestion includes content, summary, kind, tags, score, reason, evidence snippets, and possible existing coverage. | Helps developers decide whether the suggestion is worth accepting. |
-| Accept suggestions | Promotes a suggestion into a memory linked back to the session and suggestion. | Turns missed context into durable memory. |
-| Dismiss suggestions | Marks suggestions as dismissed and hides them from the default open list. | Keeps review queues clean. |
-
-## Confidence and Conflict System
-
-| Feature | What it does | Problem it solves |
-| --- | --- | --- |
-| Confidence reports | Explains confidence from base score, source reliability, usage, recency, feedback, and conflict penalties. | Shows why a memory is high, medium, low, stale, or conflicted. |
-| Usage tracking | Records returned, selected, and applied usage events. Retrieval automatically records returned memories. | Reinforces memories that are actually used. |
-| Confidence recompute | Recomputes one memory or all memories and stores confidence metadata. | Keeps health indicators current after feedback, usage, or conflict changes. |
-| Conservative conflict detection | Detects obvious contradictory preferences and stores open conflicts. | Flags memories that should not both be trusted. |
-| Conflict resolution | Dismisses, marks resolved, archives a memory, or merges through API/CLI; the UI currently supports dismissal. | Gives developers a path to resolve contradiction warnings. |
+| Missing-memory suggestions | Scans sessions for durable context that ingestion skipped. | core, API, CLI, UI |
+| Confidence reports | Explains trust signals from source reliability, usage, feedback, recency, and conflicts. | core, API, CLI, UI |
+| Conservative conflicts | Detects obvious contradictions and preserves them as auditable records. | core, API, CLI, UI dismissal |
 
 ## Developer Experience
 
-| Feature | What it does | Problem it solves |
+| Feature | What it does | Exposed in |
 | --- | --- | --- |
-| Dashboard | Shows memory health, counts by kind, low confidence, open conflicts, recent reinforcement, sessions, traces, duplicate stats, and retrieval activity. | Gives a quick operational view of local memory. |
-| Memory Explorer | Searches and filters memories, shows retrieval explanations, source metadata, confidence, feedback history, conflicts, state, and dedupe relationships. | Central workspace for inspecting and correcting memory. |
-| Session Explorer | Lists sessions, shows transcript timelines, related memories, missing-memory analysis, and create-memory actions. | Connects memories back to the agent run that produced them. |
-| Replay Viewer | Shows trace pipelines and correction actions for ignored or wrongly merged decisions. | Turns hidden memory behavior into a readable debugger. |
-| Settings | Configures the local API URL and exposes local runtime details. | Makes local setup explicit. |
-| Fastify API | Exposes memory CRUD, ingest, search, feedback, rules, sessions, missing analysis, confidence, conflicts, usage, replay, stats, and demo seed routes. | Provides integration points for agents and local tools. |
-| CLI | Supports init, ingest, search, list, session list, replay, seed, feedback, rules, fix shortcuts, missing analysis, confidence, and conflicts. | Keeps the full workflow scriptable. |
-| Shared schemas | Uses Zod schemas and shared TypeScript types across packages. | Keeps API, CLI, UI, and core contracts consistent. |
+| Dashboard | Shows health, counts, sessions, traces, and retrieval activity. | UI |
+| Memory Explorer | Shows automatic origin, source metadata, explanations, confidence, conflicts, and fix actions. | UI |
+| Session Explorer | Shows steps, related memories, and missing-memory suggestions. | UI |
+| Replay Viewer | Shows automatic filtering stages plus ingestion and retrieval reasoning. | UI |
+| Fastify API | Exposes local CRUD, ingest, automation capture, search, replay, feedback, rules, sessions, missing analysis, confidence, conflicts, and stats. | API |
+| CLI | Exposes init, ingest, integrate, capture, hooks, watch, replay, feedback, rules, missing analysis, confidence, and conflicts. | CLI |

@@ -1,192 +1,59 @@
 # Agent Memory Devtools
 
-> Debug and fix what your AI agent remembers.
+> Debuggable, correctable memory system for AI coding agents.
 
-[![Local-first](https://img.shields.io/badge/local--first-SQLite-246b5b)](#local-first-design)
-[![Node](https://img.shields.io/badge/node-%3E%3D20.11-315f8f)](#60-second-quickstart)
-[![License: MIT](https://img.shields.io/badge/license-MIT-a66d05)](LICENSE)
+Agent Memory Devtools gives Codex and Claude Code a local memory layer that developers can inspect, replay, and fix. It stores memory in SQLite, keeps retrieval explainable, records replay traces for ingestion and search, and now supports automatic workflow capture for real coding-agent sessions.
 
-**Your AI agent forgets things. This fixes that.**
+## What Problem This Solves
 
-Debuggable, correctable, and inspectable memory for Codex, Claude Code, and other AI coding agents.
+Coding agents lose useful project context, remember the wrong thing, or make retrieval decisions you cannot inspect. When that happens, developers need answers:
 
-Agent Memory Devtools gives coding agents a local memory layer that developers can inspect, fix, replay, and trust. It stores memories in SQLite, explains ingestion and retrieval decisions, and turns user corrections into feedback records and deterministic rules.
+- what did the agent remember?
+- why was it stored?
+- why was it retrieved?
+- what should have been ignored?
+- how do I correct future behavior?
 
-Think Chrome DevTools, but for AI agent memory.
+## What This Repo Now Supports
 
-## What This Looks Like in Practice
+### Claude Code
 
-You search:
+Claude Code has a real project hook path in this repo.
 
-```text
-why did the agent use zod here?
-```
+Automatic capture can happen for:
 
-Instead of guessing, you see:
+- durable user prompts
+- changed files after edit/write tools
+- task-complete summaries
+- end-of-turn assistant summaries
 
-- which memory was used
-- why it was ranked
-- when it was created
-- what session it came from
-- which scoring signals affected retrieval
+Those events flow through the normal memory pipeline and show up with replay traces, source metadata, and the usual feedback/rules workflow.
 
-Then you realize the memory is wrong.
+### Codex
 
-Click **This should not be remembered** or apply the same fix from the CLI.
+Codex does not have a native project hook lifecycle here, so this repo does not fake one.
 
-Run the agent again.
+The supported Codex path is:
 
-It does not make the same memory mistake.
+- automatic code-change capture through `agent-memory watch`
+- explicit checkpoint capture through `capture changes` or `capture session`
+- repo instructions plus a memory-capture skill so the workflow is obvious inside the repo
 
-### The Problem in One Sentence
+That makes Codex useful out of the box without inventing unsupported tool behavior.
 
-You run your agent again, and it forgets how your project is structured, what you told it 10 minutes ago, or why it made a decision.
+## What Is Automatic vs Semi-Automatic
 
-Or worse: it remembers the wrong thing.
+Automatic:
 
-Agent Memory Devtools lets you see, fix, and improve what your agent remembers.
+- Claude Code hook capture for prompt, file-change, stop, and task-complete events
+- Codex file-change capture when `watch` is running
+- replay traces for automatic capture decisions
 
-## Problem
+Semi-automatic:
 
-Agent memory is usually opaque. A coding agent may remember stale preferences, miss important handoff notes, merge the wrong duplicate, or retrieve a memory for reasons nobody can see. Vector search alone does not answer the questions developers actually ask:
-
-- What did the agent remember from the last session?
-- Why was this candidate stored, ignored, or merged?
-- Why did this memory rank above another result?
-- How do I correct a bad memory so it does not happen again?
-- Which memories are low-confidence, stale, or contradicted?
-
-## Solution
-
-Agent Memory Devtools treats memory as developer infrastructure, not hidden model state.
-
-It provides a memory engine, Fastify API, CLI, and React inspector for local agent workflows. Every durable memory keeps its source, kind, tags, confidence, importance, state, related session, and decision metadata. Searches return ranked explanations. Ingestion and retrieval create replay traces. Corrections are captured as feedback and can become rules for future ingestion or dedupe behavior.
-
-## Before vs After
-
-### Without Agent Memory Devtools
-
-- Agent forgets important context between runs.
-- You do not know why it retrieved a memory.
-- Bad memories keep coming back.
-- Missed context stays missed.
-- Memory behavior is hard to debug.
-
-### With Agent Memory Devtools
-
-- Inspect every stored memory.
-- See exactly why a memory was created or retrieved.
-- Fix bad memory with direct feedback.
-- Detect what should have been remembered.
-- Track confidence, usage, and conflicts.
-
-## Who This Is For
-
-- Developers using Codex, Claude Code, or similar coding agents.
-- People building agent workflows with persistent project context.
-- Maintainers frustrated by flaky or stale agent memory.
-- Teams evaluating predictable, inspectable AI systems without hosted memory infrastructure.
-
-## Key Features
-
-### Memory Fix Mode
-
-Fix broken memory behavior directly:
-
-- "This should not be remembered."
-- "This was merged incorrectly."
-- "This should have been remembered."
-- "This memory should matter more."
-
-Corrections are stored as feedback and can become deterministic rules for future sessions.
-
-### Missing Memory Analysis
-
-Find what your agent should have remembered but did not.
-
-Detect:
-
-- missed preferences
-- lost task context
-- important codebase facts
-- repeated concepts across a session
-
-Accept suggestions in the Session Explorer or through the API/CLI.
-
-### Explainable Retrieval and Replay
-
-See exactly why a memory was retrieved:
-
-- keyword match
-- local semantic similarity
-- recency
-- importance
-- pinned boost
-- same-session boost
-
-Replay traces show the ingestion and retrieval pipeline, including store, ignore, merge, and ranking decisions.
-
-### Confidence and Conflicts
-
-Understand memory quality before trusting it:
-
-- confidence score and label
-- usage reinforcement
-- stale or low-confidence memory
-- feedback impact
-- open preference conflicts
-
-### Local-First Design
-
-- SQLite storage
-- deterministic local hash embeddings
-- no API keys
-- no cloud account
-- no remote vector database
-- no hidden hosted state
-
-See [FEATURES.md](FEATURES.md) for the full capability map.
-
-## How It Works
-
-1. You run your agent.
-2. Sessions are ingested into local memory.
-3. Durable facts, preferences, tasks, codebase context, and summaries are extracted.
-4. You inspect and fix memory in the UI, API, or CLI.
-5. Retrieval is explainable and traceable.
-6. Corrections improve future ingestion and dedupe behavior through feedback and rules.
-
-## Design Principles
-
-- **Deterministic by default** - local ranking and hash embeddings make behavior reproducible without hidden model calls.
-- **Local-first** - SQLite is the source of truth, and no external service is required.
-- **Fully inspectable state** - memories, sessions, traces, feedback, rules, suggestions, usage, and conflicts are stored as readable records.
-- **Explainable decisions** - ingestion, dedupe, retrieval, confidence, and correction workflows expose their reasons.
-- **Correction over magic** - when memory is wrong, developers should be able to fix it and improve future behavior.
-
-## Screenshots
-
-Placeholders are kept so maintainers can drop in current captures before publishing:
-
-- `docs/screenshots/dashboard.png` - health metrics, guided demo, recent sessions, retrieval activity
-- `docs/screenshots/memory-explorer.png` - search, memory details, fix controls, confidence, conflicts
-- `docs/screenshots/session-explorer.png` - timeline, related memories, missing-memory suggestions
-- `docs/screenshots/replay-viewer.png` - ingestion and retrieval decision pipelines
-
-## Try It in 30 Seconds
-
-```bash
-npm install
-npm run dev:api &
-npm run dev:web &
-npm run cli -- dev:seed
-```
-
-Open [http://127.0.0.1:5173](http://127.0.0.1:5173) and search:
-
-```text
-typescript zod api
-```
+- Codex checkpoint summaries through CLI commands
+- manual transcript or JSON imports
+- correction with feedback, rules, missing-memory suggestions, confidence, and conflicts
 
 ## 60-Second Quickstart
 
@@ -196,74 +63,97 @@ Install dependencies:
 npm install
 ```
 
-Run the API:
+Start the local memory API:
 
 ```bash
 npm run dev:api
 ```
 
-Run the UI in a second terminal:
+Optional UI:
 
 ```bash
 npm run dev:web
 ```
 
-Seed demo data in a third terminal:
+### Codex Setup
 
 ```bash
-npm run cli -- dev:seed
+npm run cli -- integrate codex
+npm run cli -- watch --tool codex
 ```
 
-Open the app:
+At meaningful checkpoints:
 
-```text
-http://127.0.0.1:5173
+```bash
+npm run cli -- capture changes --tool codex --summary "what changed and what remains"
 ```
 
-Try the workflow:
+### Claude Code Setup
 
-1. Open **Dashboard** and confirm demo memories, sessions, traces, and health metrics.
-2. Open **Memory Explorer** and search for `typescript zod api`.
-3. Select a memory and inspect why it exists, why it was retrieved, confidence, feedback, and conflicts.
-4. Open **Replay** and inspect the latest retrieval trace.
-5. Open **Session Explorer**, select a session, run **Analyze missing memories**, and accept or dismiss a suggestion.
+```bash
+npm run cli -- integrate claude
+npm run cli -- hooks status
+```
 
-## CLI Usage
+Open the repo in Claude Code, use `/hooks` to confirm the project hooks are active, then make a meaningful edit.
 
-The CLI uses the local API when it is available and falls back to direct `memory-core` operations for supported commands.
+## Verification
+
+Search memory:
+
+```bash
+npm run cli -- search "automation capture memory"
+```
+
+Inspect the latest replay trace:
+
+```bash
+npm run cli -- replay <trace-id>
+```
+
+List memories:
+
+```bash
+npm run cli -- list
+```
+
+In the web UI, Memory Explorer now shows whether a memory came from automatic capture and whether the origin was a user prompt, agent summary, or file change.
+
+## CLI Surface
+
+Core memory:
 
 ```bash
 npm run cli -- init
-npm run cli -- dev:seed
 npm run cli -- ingest examples/sample-session.txt
-npm run cli -- ingest examples/sample-session.json
-npm run cli -- list
 npm run cli -- search "typescript zod api"
 npm run cli -- session list
 npm run cli -- replay <trace-id>
 ```
 
-Memory Fix Mode:
+Automation and integrations:
+
+```bash
+npm run cli -- integrate codex
+npm run cli -- integrate claude
+npm run cli -- hooks install
+npm run cli -- hooks status
+npm run cli -- capture session --summary "durable checkpoint summary" --tool codex
+npm run cli -- capture changes --tool codex --summary "what changed and what remains"
+npm run cli -- watch --tool codex
+```
+
+Correction loop:
 
 ```bash
 npm run cli -- fix remember <decision-or-step-id> --target decision --rule
 npm run cli -- fix forget <memory-id> --rule
-npm run cli -- fix duplicate <source-memory-id> <canonical-memory-id> --rule
-```
-
-Feedback, missing-memory analysis, confidence, and conflicts:
-
-```bash
-npm run cli -- feedback list --status applied
 npm run cli -- analyze-missing <session-id> --refresh
-npm run cli -- missing accept <suggestion-id>
 npm run cli -- confidence show <memory-id>
-npm run cli -- confidence recompute
 npm run cli -- conflicts detect
-npm run cli -- conflicts list
 ```
 
-## API Examples
+## API Surface
 
 Health:
 
@@ -271,121 +161,69 @@ Health:
 curl http://127.0.0.1:4317/health
 ```
 
-Seed demo sessions:
+Automatic capture:
 
 ```bash
-curl -X POST http://127.0.0.1:4317/dev/seed
-```
-
-Search with ranking explanations:
-
-```bash
-curl -X POST http://127.0.0.1:4317/search \
+curl -X POST http://127.0.0.1:4317/automation/capture \
   -H "content-type: application/json" \
-  -d '{"query":"typescript zod api","limit":5}'
+  -d '{
+    "source": { "type": "hook", "agent": "claude-code", "label": "Claude Code automatic capture" },
+    "events": [
+      {
+        "type": "user-prompt",
+        "tool": "claude-code",
+        "trigger": "hook",
+        "content": "Prefer durable coding workflow notes to become local memory."
+      }
+    ]
+  }'
 ```
 
-Ingest a session:
-
-```bash
-curl -X POST http://127.0.0.1:4317/ingest \
-  -H "content-type: application/json" \
-  -d @examples/sample-session.json
-```
-
-Apply feedback and create a rule:
-
-```bash
-curl -X POST http://127.0.0.1:4317/feedback \
-  -H "content-type: application/json" \
-  -d '{"targetType":"memory","targetId":"<memory-id>","memoryId":"<memory-id>","type":"should-not-remember","apply":true,"createRule":true}'
-```
-
-Analyze missing memories:
-
-```bash
-curl -X POST http://127.0.0.1:4317/sessions/<session-id>/analyze-missing \
-  -H "content-type: application/json" \
-  -d '{"refresh":true,"limit":8}'
-```
-
-Inspect confidence and conflicts:
-
-```bash
-curl http://127.0.0.1:4317/memories/<memory-id>/confidence
-curl -X POST http://127.0.0.1:4317/conflicts/detect
-curl http://127.0.0.1:4317/conflicts
-```
-
-Explore replay traces:
+Replay:
 
 ```bash
 curl http://127.0.0.1:4317/replay
-curl http://127.0.0.1:4317/replay/<trace-id>
 ```
 
 ## Architecture
 
 ```text
 apps/web          React + Vite inspector UI
-apps/api          Fastify REST API
-packages/cli      agent-memory command line tool
-packages/shared   Zod schemas and shared TypeScript types
+apps/api          Fastify API
+packages/cli      agent-memory CLI and integration helpers
+packages/shared   Zod schemas and shared types
 packages/memory-core
-  store.ts        SQLite repository boundary
-  ingestion.ts    normalization, chunking, classification, rules, dedupe, traces
-  retrieval.ts    local search, ranking, explanations, retrieval traces
-  service.ts      feedback, rules, missing analysis, confidence, conflicts
-  seed.ts         demo sessions
-```
-
-Core flow:
-
-```text
-transcript or JSON session
-  -> normalize session and steps
-  -> chunk candidate memories
-  -> apply ingestion and dedupe rules
-  -> store, ignore, or merge with a reason
-  -> search with explainable local ranking
-  -> correct with feedback, suggestions, and rules
-  -> replay decisions from API, CLI, or UI
+  automation.ts   automatic event capture pipeline
+  ingestion.ts    normalization, classification, rules, dedupe, replay traces
+  retrieval.ts    explainable local ranking and retrieval traces
+  service.ts      feedback, rules, missing analysis, confidence, conflicts, automation capture
+  store.ts        SQLite store
 ```
 
 ## Local-First Design
 
-- Default database: `~/.agent-memory/memory.sqlite`
-- Storage: SQLite via `better-sqlite3`
-- Embeddings: deterministic local hash embeddings
-- API: local Fastify server on `http://127.0.0.1:4317`
-- UI: local Vite app on `http://127.0.0.1:5173`
+- SQLite is the source of truth
+- deterministic local embeddings are the default
+- no hosted sync
+- no auth
+- no remote vector database dependency
 
-Configuration:
+## Limitations
 
-```bash
-AGENT_MEMORY_HOME=~/.agent-memory
-AGENT_MEMORY_DB=~/.agent-memory/memory.sqlite
-AGENT_MEMORY_API_URL=http://127.0.0.1:4317
-VITE_AGENT_MEMORY_API_URL=http://127.0.0.1:4317
-```
+- Codex uses repo instructions plus local helpers, not native repo hooks
+- Claude hook capture requires the local API to be running
+- automation intentionally ignores low-signal chatter and secret-like content
+- the UI still does not have a full rule-management screen
+- conflict resolution in the UI is still dismissal-focused
 
-## Why This Is Different
+## Docs
 
-**Vector DBs** store embeddings.
-
-**LangChain memory** usually lives inside your app.
-
-**Simple RAG** answers retrieval questions.
-
-**Agent Memory Devtools** gives you:
-
-- visibility
-- control
-- correction
-- replay
-- confidence
-
-It treats memory as a developer-facing system, not hidden infrastructure.
+- [Automatic memory pipeline](docs/automatic-memory.md)
+- [Codex integration](docs/codex-integration.md)
+- [Claude Code integration](docs/claude-code-integration.md)
+- [Features](FEATURES.md)
+- [Demo](DEMO.md)
+- [Roadmap](ROADMAP.md)
 
 ## Development
 
@@ -394,13 +232,3 @@ npm run build
 npm test
 npm run lint
 ```
-
-Core tests live in `packages/memory-core/test` and cover ingestion, dedupe, retrieval explanations, Memory Fix Mode, missing-memory analysis, confidence, and conflicts.
-
-## Roadmap
-
-See [ROADMAP.md](ROADMAP.md) for completed work, current focus, and high-impact next steps.
-
-## Contributing
-
-Contributions are welcome around UI polish, docs, demo fixtures, trace wording, tests, and small integrations that preserve the local-first design. Start with [CONTRIBUTING.md](CONTRIBUTING.md), open an issue for larger changes, and keep PRs scoped to making coding-agent memory more debuggable and correctable.

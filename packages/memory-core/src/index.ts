@@ -1,3 +1,4 @@
+export * from "./automation.js";
 export * from "./embedding.js";
 export * from "./confidence.js";
 export * from "./conflicts.js";

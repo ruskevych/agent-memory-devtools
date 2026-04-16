@@ -10,8 +10,23 @@ export const MemoryKindSchema = z.enum([
 ]);
 export type MemoryKind = z.infer<typeof MemoryKindSchema>;
 
-export const SourceTypeSchema = z.enum(["session", "manual", "cli", "api", "import", "sample"]);
+export const SourceTypeSchema = z.enum(["session", "manual", "cli", "api", "import", "sample", "hook", "automation"]);
 export type SourceType = z.infer<typeof SourceTypeSchema>;
+
+export const AutomationToolSchema = z.enum(["codex", "claude-code", "generic"]);
+export type AutomationTool = z.infer<typeof AutomationToolSchema>;
+
+export const AutomationTriggerSchema = z.enum(["hook", "watch", "cli", "manual"]);
+export type AutomationTrigger = z.infer<typeof AutomationTriggerSchema>;
+
+export const AutomationEventTypeSchema = z.enum([
+  "user-prompt",
+  "agent-summary",
+  "file-change",
+  "task-complete",
+  "session-checkpoint"
+]);
+export type AutomationEventType = z.infer<typeof AutomationEventTypeSchema>;
 
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
@@ -356,6 +371,98 @@ export const IngestResponseSchema = z.object({
   trace: ReplayTraceSchema
 });
 export type IngestResponse = z.infer<typeof IngestResponseSchema>;
+
+export const AutomationFileChangeSchema = z.object({
+  path: z.string(),
+  changeType: z.enum(["added", "modified", "deleted"]).default("modified"),
+  summary: z.string().optional(),
+  addedLines: z.number().int().nonnegative().default(0),
+  deletedLines: z.number().int().nonnegative().default(0),
+  symbols: z.array(z.string()).default([]),
+  libraries: z.array(z.string()).default([]),
+  metadata: MetadataSchema.optional().default({})
+});
+export type AutomationFileChange = z.infer<typeof AutomationFileChangeSchema>;
+
+export const AutomationEventInputSchema = z.object({
+  id: z.string().optional(),
+  type: AutomationEventTypeSchema,
+  tool: AutomationToolSchema.default("generic"),
+  trigger: AutomationTriggerSchema.default("cli"),
+  automatic: z.boolean().default(true),
+  sessionId: z.string().optional(),
+  taskId: z.string().optional(),
+  cwd: z.string().optional(),
+  title: z.string().optional(),
+  content: z.string().optional(),
+  summary: z.string().optional(),
+  timestamp: z.string().datetime().optional(),
+  files: z.array(AutomationFileChangeSchema).default([]),
+  metadata: MetadataSchema.optional().default({})
+});
+export type AutomationEventInput = z.input<typeof AutomationEventInputSchema>;
+
+export const AutomationEventSchema = z.object({
+  id: z.string(),
+  type: AutomationEventTypeSchema,
+  tool: AutomationToolSchema,
+  trigger: AutomationTriggerSchema,
+  automatic: z.boolean().default(true),
+  sessionId: z.string().optional(),
+  taskId: z.string().optional(),
+  cwd: z.string().optional(),
+  title: z.string().optional(),
+  content: z.string().optional(),
+  summary: z.string().optional(),
+  timestamp: z.string().datetime(),
+  files: z.array(AutomationFileChangeSchema).default([]),
+  metadata: MetadataSchema.optional().default({})
+});
+export type AutomationEvent = z.infer<typeof AutomationEventSchema>;
+
+export const AutomationCaptureRequestSchema = z.object({
+  session: z
+    .object({
+      id: z.string().optional(),
+      title: z.string().optional(),
+      agent: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      metadata: MetadataSchema.optional()
+    })
+    .optional(),
+  source: MemorySourceSchema.partial().optional(),
+  events: z.array(AutomationEventInputSchema).min(1),
+  metadata: MetadataSchema.optional().default({})
+});
+export type AutomationCaptureRequest = z.input<typeof AutomationCaptureRequestSchema>;
+
+export const AutomationCaptureDecisionSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  type: AutomationEventTypeSchema,
+  action: z.enum(["accept", "ignore"]),
+  reason: z.string(),
+  role: SessionStepSchema.shape.role.optional(),
+  content: z.string().optional(),
+  fingerprint: z.string().optional(),
+  metadata: MetadataSchema.optional().default({})
+});
+export type AutomationCaptureDecision = z.infer<typeof AutomationCaptureDecisionSchema>;
+
+export const AutomationCaptureResponseSchema = z.object({
+  session: SessionSchema.optional(),
+  steps: z.array(SessionStepSchema),
+  stored: z.array(MemorySchema),
+  ignored: z.array(MemoryDecisionSchema),
+  merged: z.array(MemoryDecisionSchema),
+  facts: z.array(MemoryFactSchema),
+  events: z.array(MemoryEventSchema),
+  trace: ReplayTraceSchema,
+  captureDecisions: z.array(AutomationCaptureDecisionSchema),
+  acceptedEventIds: z.array(z.string()).default([]),
+  ignoredEventIds: z.array(z.string()).default([])
+});
+export type AutomationCaptureResponse = z.infer<typeof AutomationCaptureResponseSchema>;
 
 export const SearchRequestSchema = z.object({
   query: z.string(),

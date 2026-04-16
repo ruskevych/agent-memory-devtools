@@ -62,6 +62,7 @@ export class IngestionPipeline {
       timestamp: step.timestamp ?? timestamp,
       metadata: step.metadata ?? {}
     }));
+    const stepById = new Map(sessionSteps.map((step) => [step.id, step]));
 
     const chunks = chunkSteps(sessionSteps);
     const ingestionRules = this.store.listRules({ scope: "ingestion", enabled: true });
@@ -152,6 +153,7 @@ export class IngestionPipeline {
 
       const duplicateMatch = findDuplicate(candidate, existing, dedupeRules);
       const duplicate = duplicateMatch?.memory;
+      const sourceStep = candidate.sourceStepId ? stepById.get(candidate.sourceStepId) : undefined;
       const memory: Memory = {
         id: createId("mem"),
         content: candidate.content,
@@ -171,6 +173,13 @@ export class IngestionPipeline {
           candidateId: candidate.id,
           ingestionTraceId: traceId,
           decisionReason: candidate.reason,
+          sourceRole: sourceStep?.role ?? null,
+          sourceStepId: sourceStep?.id ?? null,
+          sourceEventType: asString(sourceStep?.metadata?.automationEventType) ?? null,
+          automationTool: asString(sourceStep?.metadata?.automationTool) ?? null,
+          automationTrigger: asString(sourceStep?.metadata?.automationTrigger) ?? null,
+          captureFingerprint: asString(sourceStep?.metadata?.captureFingerprint) ?? null,
+          filePaths: asStringArray(sourceStep?.metadata?.filePaths) ?? [],
           ...(duplicateMatch ? { dedupeScore: duplicateMatch.score } : {})
         }
       };
