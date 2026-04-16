@@ -100,12 +100,14 @@ if (mode === "stop" || mode === "session-end") {
 
 process.exit(0);
 
+const COMPLETION_VERB_RE =
+  /\b(built|created|developed|generated|implemented|initialized|introduced|scaffolded|bootstrapped|wrote|added|adjusted|changed|enhanced|extended|improved|modified|refactored|reorganized|restructured|revised|simplified|standardized|tweaked|updated|addressed|corrected|debugged|fixed|handled|patched|repaired|resolved|squashed|archived|cleaned|deleted|deprecated|dropped|eliminated|pruned|purged|removed|deployed|landed|merged|migrated|published|released|shipped|configured|connected|disabled|enabled|integrated|installed|linked|registered|set up|toggled|wired|consolidated|converted|downgraded|extracted|moved|optimized|ported|renamed|replaced|reverted|split|synchronized|upgraded|exported|imported|injected|completed|finalized|finished)\b/i;
+
 function extractMeaningfulSummary(text) {
-  const completionPattern = /\b(implemented|added|updated|introduced|changed|moved|refactored|fixed|created|removed|installed|configured|resolved|completed)\b/i;
   const sentences = text
     .split(/(?<=[.!])\s+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 30 && completionPattern.test(s));
+    .filter((s) => s.length > 30 && COMPLETION_VERB_RE.test(s));
   return sentences.length ? sentences.join(" ") : "";
 }
 

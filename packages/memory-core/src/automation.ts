@@ -12,6 +12,13 @@ import {
   SessionStep
 } from "@agent-memory/shared";
 import { IngestionPipeline } from "./ingestion.js";
+import {
+  COMPLETION_VERB_RE,
+  CONVERSATIONAL_ACK_RE,
+  DURABLE_INSTRUCTION_PHRASES,
+  DURABLE_INSTRUCTION_VERB_RE,
+  SYSTEM_NOISE_PATTERNS,
+} from "./signals.js";
 import { MemoryStore } from "./store.js";
 import { createId, jaccard, normalizeText, nowIso, summarize, tokenize, unique } from "./util.js";
 
@@ -451,20 +458,16 @@ function codeChangeNarrative(event: AutomationEvent): string | undefined {
 function looksDurableInstruction(text: string): boolean {
   if (text.length < 40) return false;
   return (
-    /\b(prefer|always|never|avoid|keep|remember|workflow|convention|schema)\b/i.test(text) ||
-    /\b(we|i) (always|never|use|prefer|avoid)\b/i.test(text) ||
-    /\buse\b.{1,40}\binstead\b/i.test(text) ||
-    /\bwhen (working|writing|building|adding|editing)\b/i.test(text)
+    DURABLE_INSTRUCTION_VERB_RE.test(text) ||
+    DURABLE_INSTRUCTION_PHRASES.some((pattern) => pattern.test(text))
   );
 }
 
 function looksMeaningfulSummary(text: string): boolean {
   if (text.length < 36) return false;
-  const hasCompletionVerb =
-    /\b(implemented|added|updated|introduced|changed|moved|refactored|fixed|created|removed|completed|resolved|configured|migrated|deployed)\b/i.test(text);
-  if (hasCompletionVerb) return true;
+  if (COMPLETION_VERB_RE.test(text)) return true;
   if (text.length < 80) return false;
-  return /\b(remaining|follow up|unresolved|hook|integration|memory|schema|route|command)\b/i.test(text);
+  return /\b(remaining|follow up|unresolved|outstanding|pending|blocked|next steps|open item|todo)\b/i.test(text);
 }
 
 function looksMeaningfulCodeChange(text: string, filePaths: string[]): boolean {
@@ -480,9 +483,9 @@ function looksMeaningfulCodeChange(text: string, filePaths: string[]): boolean {
 function isLowSignal(text: string): boolean {
   const normalized = normalizeText(text);
   if (normalized.length < 24) return true;
-  if (/^(ok|done|thanks|great|looks good|sounds good)$/.test(normalized)) return true;
+  if (CONVERSATIONAL_ACK_RE.test(normalized)) return true;
   if (/\?$/.test(text.trim())) return true;
-  if (/\b(packages? are looking for funding|found \d+ vulnerabilities|audited \d+ packages|added \d+ packages)\b/i.test(text)) return true;
+  if (SYSTEM_NOISE_PATTERNS.some((pattern) => pattern.test(text))) return true;
   return false;
 }
 

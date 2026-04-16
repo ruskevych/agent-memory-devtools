@@ -15,6 +15,15 @@ import {
   SessionStep
 } from "@agent-memory/shared";
 import { createEmbedding, EmbeddingProvider, HashEmbeddingProvider } from "./embedding.js";
+import {
+  CODEBASE_CONTEXT_RE,
+  COMPLETION_VERB_RE,
+  CONVERSATIONAL_ACK_RE,
+  DURABLE_INSTRUCTION_PHRASES,
+  DURABLE_INSTRUCTION_VERB_RE,
+  SYSTEM_NOISE_PATTERNS,
+  TASK_CONTINUATION_RE,
+} from "./signals.js";
 import { MemoryStore } from "./store.js";
 import { clamp01, createId, jaccard, normalizeText, nowIso, summarize, tokenize, unique } from "./util.js";
 
@@ -349,22 +358,23 @@ function classifyCandidate(content: string, sourceStepId?: string): Candidate {
   let confidence = 0.56;
   let reason = "Substantive statement that may help a future coding agent.";
 
-  if (/\b(prefer|preference|always|never|avoid|use .* instead|we use|style)\b/i.test(content)) {
+  const isPreference = DURABLE_INSTRUCTION_VERB_RE.test(content) || DURABLE_INSTRUCTION_PHRASES.some((p) => p.test(content));
+  if (isPreference) {
     kind = "preference";
     importance += 0.35;
     confidence += 0.22;
     reason = "Detected durable preference or workflow instruction.";
-  } else if (/\b(todo|unresolved|blocked|follow up|next time|remaining|still need|not done|open task)\b/i.test(content)) {
+  } else if (TASK_CONTINUATION_RE.test(content)) {
     kind = "task-context";
     importance += 0.3;
     confidence += 0.16;
     reason = "Detected unresolved task or continuation context.";
-  } else if (/\b(src\/|packages\/|apps\/|api|cli|vite|react|fastify|sqlite|schema|database|repo|monorepo|tests?|build|command|script)\b/i.test(content)) {
+  } else if (CODEBASE_CONTEXT_RE.test(content)) {
     kind = "codebase-context";
     importance += 0.24;
     confidence += 0.14;
     reason = "Detected codebase or implementation fact.";
-  } else if (/\b(implemented|fixed|created|ran|changed|merged|deleted|released|ingested|searched)\b/i.test(content)) {
+  } else if (COMPLETION_VERB_RE.test(content)) {
     kind = "event";
     importance += 0.12;
     reason = "Detected timeline-worthy project event.";
@@ -375,17 +385,14 @@ function classifyCandidate(content: string, sourceStepId?: string): Candidate {
     confidence = 0.2;
     reason = "Potential secret or credential-like content should not be stored by default.";
   }
-  if (normalized.length < 24 || /^(ok|yes|no|thanks|done|great)[.!]*$/i.test(normalized)) {
+  if (normalized.length < 24 || CONVERSATIONAL_ACK_RE.test(normalized)) {
     importance = 0.08;
     confidence = 0.25;
     reason = "Too short or conversational to store.";
-  } else if (
-    /\?$/.test(content.trim()) ||
-    /\b(packages? are looking for funding|found \d+ vulnerabilities|audited \d+ packages|added \d+ packages|run `npm fund`)\b/i.test(content)
-  ) {
+  } else if (/\?$/.test(content.trim()) || SYSTEM_NOISE_PATTERNS.some((p) => p.test(content))) {
     importance = 0.08;
     confidence = 0.25;
-    reason = "Conversational question or npm output noise.";
+    reason = "Conversational question or system output noise.";
   }
 
   const specificityBoost = Math.min(0.15, tags.length * 0.025 + Math.max(0, tokenize(content).length - 12) * 0.004);
