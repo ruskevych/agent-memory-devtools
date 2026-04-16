@@ -145,9 +145,11 @@ npm run cli:prod -- hooks status
 ```bash
 npm run cli:prod -- replay <trace-id>
 ```
-Look for `automation-filtering` decisions - the system intentionally ignores:
-- Low-signal chat and greetings
-- Secret-like content (.env files, credentials)
-- Tiny formatting-only changes
+Look for `automation-filtering` decisions — the system intentionally ignores:
+- Conversational acknowledgements (`ok`, `done`, `sounds good`, and 30 others)
+- Questions (any content ending with `?`)
+- System output (npm notices, build lines, stack traces, test summaries)
+- Secret-like content (tokens, passwords, private keys)
+- Stop-event assistant messages with no completion verbs
 
-5. **Make a meaningful edit**: Try a substantial code change with a clear purpose rather than minor formatting
+5. **Make a meaningful edit**: A substantial code change with clear purpose, or a prompt containing a durable instruction (`prefer`, `always`, `never`, `avoid`, `when writing`, etc.)

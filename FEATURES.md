@@ -17,9 +17,13 @@ Agent Memory Devtools is a debuggable, correctable memory system for AI coding a
 | --- | --- | --- |
 | Automation event schema | Accepts prompt, summary, file-change, task-complete, and session-checkpoint events. | shared, core, API, CLI |
 | Automation capture pipeline | Filters noisy events, dedupes repeated captures, and routes accepted events into the existing ingestion path. | core, API, CLI |
+| Generic signal wordlists | `signals.ts` defines COMPLETION_VERBS (60+), DURABLE_INSTRUCTION_VERBS/NOUNS, TASK_CONTINUATION_TERMS (28), CODEBASE_CONTEXT_RE, CONVERSATIONAL_ACKS (33), and SYSTEM_NOISE_PATTERNS. Both automation and ingestion pipelines import from this single source. | core |
+| Noise suppression | Rejects questions, conversational acks, npm output, build lines, stack traces, secret-like content, and stop-event summaries with no completion verbs. Operates at both automation-event and ingestion-chunk layers. | core, hook |
+| Paragraph-first chunking | Splits content at paragraph boundaries first; sentence-level splitting is reserved for paragraphs > 500 characters. Prevents short conversational replies from becoming multiple memory candidates. | core |
+| Hook pre-filtering | The Claude Code stop hook filters `last_assistant_message` sentence-by-sentence before posting — only sentences containing a completion verb are forwarded. | hook |
 | Automatic source metadata | Marks memories as automatic and records the tool, trigger, and origin event type. | core, UI |
 | Automation replay stages | Adds `automation-events` and `automation-filtering` stages ahead of normal ingestion stages. | core, UI, CLI |
-| Code-change-derived capture | Turns meaningful changed files into codebase-context candidates without external APIs. | CLI, core |
+| Code-change-derived capture | Turns meaningful changed files into codebase-context candidates without external APIs, using generic file-type and architecture terms from `signals.ts`. | CLI, core |
 
 ## Codex Compatibility
 

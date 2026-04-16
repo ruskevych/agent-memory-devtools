@@ -19,6 +19,7 @@ Use the same product terms everywhere:
 - Do not introduce hosted sync, auth, teams, or remote memory dependencies.
 - Use existing package boundaries and shared Zod schemas.
 - Document implemented behavior only.
+- To tune what gets captured or ignored, edit `packages/memory-core/src/signals.ts` — it is the single source for all signal wordlists used by both the automation and ingestion pipelines.
 
 ## Codex Workflow In This Repo
 

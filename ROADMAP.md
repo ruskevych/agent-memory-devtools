@@ -15,11 +15,16 @@ Agent Memory Devtools should stay small, local, debuggable, and correctable. The
 - Codex-compatible watch and checkpoint capture workflow without claiming unsupported native hooks
 - CLI commands for integration setup, hook status, session capture, change capture, and watch mode
 - Docs for Codex, Claude Code, and automatic memory behavior
+- Generic signal wordlists in `signals.ts` shared across automation and ingestion pipelines
+- Comprehensive noise suppression: questions, conversational acks, npm/build output, stack traces, system noise patterns
+- Paragraph-first chunking to prevent short replies from becoming multiple memory candidates
+- Hook pre-filtering of stop-event summaries to only forward sentences with completion verbs
+- `fact`-kind importance threshold raised to 0.40 (from 0.28) to require stronger signal before storing
+- 26-test suite covering noise rejection, signal acceptance, chunking behavior, and the full fix-mode workflow
 
 ## In Progress
 
 - Tightening demo data and screenshots so automatic capture is obvious on the first run
-- Expanding test coverage around CLI flows and integration edge cases
 
 ## Next
 

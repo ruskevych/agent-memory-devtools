@@ -64,7 +64,7 @@ A local memory pipeline that:
 
 ## Key features
 
-- **Automatic capture** — Claude Code hooks capture prompts, file changes, and task summaries with no manual steps
+- **Automatic capture** — Claude Code hooks capture prompts, file changes, and task summaries with no manual steps; stop-event summaries are pre-filtered before reaching the API
 - **Watch mode + checkpoints** — Codex sessions use file-change watching and explicit checkpoint capture
 - **Replay traces** — every ingestion and retrieval decision has a step-by-step trace you can inspect
 - **Feedback and rules** — mark a memory to remember or forget; promote corrections to persistent rules
@@ -82,7 +82,7 @@ A local memory pipeline that:
 - Deterministic local heuristics — no LLM calls for retrieval decisions
 - Replay traces are always visible — nothing is a black box
 - Rules come from feedback — not from a config file you maintain by hand
-- Capture is conservative — low-signal chatter and secret-like content are ignored
+- Capture is conservative — generic wordlists in `signals.ts` filter questions, conversational acks, system output, and secret-like content at both the automation and ingestion layers
 
 ---
 
@@ -294,7 +294,7 @@ packages/memory-core
 
 - Codex uses repo instructions plus local helpers rather than native repo hooks
 - Claude hook capture requires the local API to be running
-- Automation intentionally ignores low-signal chatter and secret-like content
+- Automation ignores questions, conversational acknowledgements, system output (npm, build lines, stack traces), and stop-event summaries with no completion verbs; edit `signals.ts` to tune the wordlists
 - The UI does not have a full rule-management screen — rules are created through feedback and exposed through the API and CLI
 - Conflict resolution in the UI is currently dismissal-focused; richer conflict actions are available through the API and CLI
 
