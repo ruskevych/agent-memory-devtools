@@ -1,0 +1,7 @@
+user: In this repo, prefer TypeScript everywhere and use Zod schemas at API boundaries.
+
+assistant: Noted. The API should be Fastify and the UI should stay focused on inspectable memory rather than a generic vector database.
+
+user: Open task: the dashboard still needs duplicate merge stats and recent retrieval activity before the demo.
+
+assistant: I implemented the memory explorer search and pin/archive/delete actions, but the dashboard stats are still pending.

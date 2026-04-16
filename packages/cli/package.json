@@ -1,0 +1,25 @@
+{
+  "name": "@agent-memory/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "agent-memory": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "npm run build -w @agent-memory/shared && npm run build -w @agent-memory/memory-core && tsx src/index.ts",
+    "dev:seed": "npm run dev -- dev:seed",
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-memory/memory-core": "0.1.0",
+    "@agent-memory/shared": "0.1.0",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

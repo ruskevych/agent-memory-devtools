@@ -1,0 +1,26 @@
+{
+  "source": {
+    "type": "sample",
+    "agent": "codex",
+    "label": "json-demo"
+  },
+  "session": {
+    "title": "JSON session import",
+    "agent": "codex",
+    "tags": ["example", "json"]
+  },
+  "steps": [
+    {
+      "role": "user",
+      "content": "Always keep agent memories editable and replayable so developers can inspect why a memory exists."
+    },
+    {
+      "role": "assistant",
+      "content": "packages/memory-core owns ingestion, dedupe, retrieval ranking, and replay traces."
+    },
+    {
+      "role": "user",
+      "content": "Follow up task: add screenshots to README once the UI is running with seeded data."
+    }
+  ]
+}

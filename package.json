@@ -1,0 +1,33 @@
+{
+  "name": "agent-memory-devtools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Inspectable, editable, replayable local memory for coding agents.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api",
+    "dev:api": "npm run dev -w @agent-memory/api",
+    "dev:web": "npm run dev -w @agent-memory/web",
+    "demo:api": "npm run dev:api",
+    "demo:web": "npm run dev:web",
+    "demo:seed": "npm run cli -- dev:seed",
+    "build": "npm run build -w @agent-memory/shared && npm run build -w @agent-memory/memory-core && npm run build -w @agent-memory/api && npm run build -w @agent-memory/cli && npm run build -w @agent-memory/web",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "check": "npm run build && npm test && npm run lint",
+    "seed": "npm run dev:seed -w @agent-memory/cli",
+    "cli": "npm run dev -w @agent-memory/cli --"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1",
+    "tsx": "^4.19.3"
+  }
+}

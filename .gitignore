@@ -1,0 +1,14 @@
+node_modules
+dist
+.agent-memory
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+coverage
+.turbo
+.vite
+.cache
