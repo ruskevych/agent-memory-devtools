@@ -16,27 +16,45 @@ Those events go to the local API and then through the normal automation capture 
 
 ## Setup
 
-Install dependencies and start the local API:
+### Step 1: Build and Start the API
+
+The hooks require the local API to be running:
 
 ```bash
 npm install
+npm run build
 npm run dev:api
 ```
 
-Verify or reinstall the project hook config:
+Keep this terminal open with the API running.
+
+### Step 2: Verify Hook Configuration
+
+In a new terminal, verify the hooks are configured:
 
 ```bash
-npm run cli -- integrate claude
-npm run cli -- hooks status
+npm run cli:prod -- integrate claude
+npm run cli:prod -- hooks status
 ```
 
-Then open this repo in Claude Code and run:
+Expected output should show the hook files in `.claude/`:
+- `.claude/settings.json`
+- `.claude/hooks/agent-memory-hook.mjs`
+
+### Step 3: Confirm in Claude Code
+
+Open this repo in Claude Code and run:
 
 ```text
 /hooks
 ```
 
-Confirm the project hooks are listed.
+Confirm the project hooks are listed:
+- UserPromptSubmit
+- PostToolUse
+- TaskCompleted
+- Stop
+- SessionEnd
 
 ## Recommended Workflow
 
@@ -57,16 +75,23 @@ The hook helper will:
 ### 3. Inspect What Happened
 
 ```bash
-npm run cli -- search "memory query"
-npm run cli -- replay <trace-id>
+npm run cli:prod -- list
+npm run cli:prod -- search "memory query"
+npm run cli:prod -- replay <trace-id>
 ```
 
-Or use Memory Explorer and Replay Viewer in the web UI.
+Or use Memory Explorer and Replay Viewer in the web UI:
+
+```bash
+npm run dev:web
+```
+
+Then visit `http://localhost:5173`
 
 ### 4. Manual Checkpoint If Needed
 
 ```bash
-npm run cli -- capture changes --tool claude-code --summary "what changed and what remains"
+npm run cli:prod -- capture changes --tool claude-code --summary "what changed and what remains"
 ```
 
 ## What Is Automatic
@@ -100,7 +125,29 @@ npm run cli -- capture changes --tool claude-code --summary "what changed and wh
 
 If hooks appear active but no memory updates are visible:
 
-- confirm `npm run dev:api` is still running
-- run `npm run cli -- hooks status`
-- make one meaningful edit instead of a tiny formatting-only change
-- open the replay trace to see whether the automation filter ignored the event
+1. **Confirm the API is running**:
+```bash
+curl http://127.0.0.1:4317/health
+```
+Expected: `{"status":"ok"}`
+
+2. **Check hook status**:
+```bash
+npm run cli:prod -- hooks status
+```
+
+3. **Verify hooks are active in Claude Code**:
+```text
+/hooks
+```
+
+4. **Check if events were filtered out**:
+```bash
+npm run cli:prod -- replay <trace-id>
+```
+Look for `automation-filtering` decisions - the system intentionally ignores:
+- Low-signal chat and greetings
+- Secret-like content (.env files, credentials)
+- Tiny formatting-only changes
+
+5. **Make a meaningful edit**: Try a substantial code change with a clear purpose rather than minor formatting

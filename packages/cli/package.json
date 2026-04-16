@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dev": "npm run build -w @agent-memory/shared && npm run build -w @agent-memory/memory-core && tsx src/index.ts",
+    "dev": "npm run build -w @agent-memory/shared --silent && npm run build -w @agent-memory/memory-core --silent && tsx src/index.ts",
     "dev:seed": "npm run dev -- dev:seed",
     "build": "tsc -p tsconfig.json",
     "test": "npm run build -w @agent-memory/shared && npm run build -w @agent-memory/memory-core && vitest run",

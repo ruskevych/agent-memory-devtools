@@ -20,7 +20,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "check": "npm run build && npm test && npm run lint",
     "seed": "npm run dev:seed -w @agent-memory/cli",
-    "cli": "npm run dev -w @agent-memory/cli --"
+    "cli": "npm run dev -w @agent-memory/cli --",
+    "cli:prod": "node packages/cli/dist/index.js"
   },
   "engines": {
     "node": ">=20.11"
