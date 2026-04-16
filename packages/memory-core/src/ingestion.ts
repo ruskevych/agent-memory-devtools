@@ -140,9 +140,10 @@ export class IngestionPipeline {
         ignored.push(decision);
         continue;
       }
+      const importanceFloor = candidate.kind === "fact" ? 0.40 : 0.28;
       if (
         !candidate.forceStore &&
-        (candidate.importance < 0.12 || (candidate.importance < 0.28 && !["preference", "task-context", "codebase-context"].includes(candidate.kind)))
+        (candidate.importance < 0.12 || (candidate.importance < importanceFloor && !["preference", "task-context", "codebase-context"].includes(candidate.kind)))
       ) {
         const decision = createDecision(traceId, candidate, "ignore", "Low importance and no durable developer-memory signal.");
         this.store.addDecision(decision);
@@ -320,11 +321,21 @@ function chunkSteps(steps: SessionStep[]): Array<{ id: string; stepId: string; c
   const chunks: Array<{ id: string; stepId: string; content: string }> = [];
   for (const step of steps) {
     const paragraphs = step.content
-      .split(/\n{2,}|(?<=[.!?])\s+(?=[A-Z`])/)
+      .split(/\n{2,}/)
       .map((part) => part.trim())
       .filter((part) => part.length > 20);
     for (const paragraph of paragraphs.length ? paragraphs : [step.content]) {
-      chunks.push({ id: createId("cand"), stepId: step.id, content: paragraph });
+      if (paragraph.length > 500) {
+        const sentences = paragraph
+          .split(/(?<=[.!?])\s+(?=[A-Z`])/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 20);
+        for (const sentence of sentences.length > 1 ? sentences : [paragraph]) {
+          chunks.push({ id: createId("cand"), stepId: step.id, content: sentence });
+        }
+      } else {
+        chunks.push({ id: createId("cand"), stepId: step.id, content: paragraph });
+      }
     }
   }
   return chunks;
@@ -368,6 +379,13 @@ function classifyCandidate(content: string, sourceStepId?: string): Candidate {
     importance = 0.08;
     confidence = 0.25;
     reason = "Too short or conversational to store.";
+  } else if (
+    /\?$/.test(content.trim()) ||
+    /\b(packages? are looking for funding|found \d+ vulnerabilities|audited \d+ packages|added \d+ packages|run `npm fund`)\b/i.test(content)
+  ) {
+    importance = 0.08;
+    confidence = 0.25;
+    reason = "Conversational question or npm output noise.";
   }
 
   const specificityBoost = Math.min(0.15, tags.length * 0.025 + Math.max(0, tokenize(content).length - 12) * 0.004);

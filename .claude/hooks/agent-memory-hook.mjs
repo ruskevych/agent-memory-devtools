@@ -60,16 +60,19 @@ if (mode === "stop" || mode === "session-end") {
   const pending = pendingState();
   const events = [];
   if (typeof input.last_assistant_message === "string" && input.last_assistant_message.trim()) {
-    events.push({
-      type: "agent-summary",
-      tool: "claude-code",
-      trigger: "hook",
-      automatic: true,
-      sessionId,
-      cwd: workspaceRoot,
-      content: input.last_assistant_message,
-      metadata: baseMetadata(input)
-    });
+    const summaryContent = extractMeaningfulSummary(input.last_assistant_message);
+    if (summaryContent) {
+      events.push({
+        type: "agent-summary",
+        tool: "claude-code",
+        trigger: "hook",
+        automatic: true,
+        sessionId,
+        cwd: workspaceRoot,
+        content: summaryContent,
+        metadata: baseMetadata(input)
+      });
+    }
   }
   if (pending.files.length) {
     events.push({
@@ -96,6 +99,15 @@ if (mode === "stop" || mode === "session-end") {
 }
 
 process.exit(0);
+
+function extractMeaningfulSummary(text) {
+  const completionPattern = /\b(implemented|added|updated|introduced|changed|moved|refactored|fixed|created|removed|installed|configured|resolved|completed)\b/i;
+  const sentences = text
+    .split(/(?<=[.!])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 30 && completionPattern.test(s));
+  return sentences.length ? sentences.join(" ") : "";
+}
 
 async function captureEvents(events) {
   try {

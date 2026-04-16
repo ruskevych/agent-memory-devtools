@@ -49,6 +49,104 @@ assistant: ok`,
   });
 });
 
+describe("noise filtering", () => {
+  it("rejects user-prompt that is a conversational question", () => {
+    const local = makeService();
+    const result = local.captureAutomation({
+      source: { type: "hook", agent: "claude-code" },
+      events: [
+        {
+          type: "user-prompt",
+          tool: "claude-code",
+          trigger: "hook",
+          content: "can you calculate fibonacci numbers? this is very important part of the project"
+        }
+      ]
+    });
+    expect(result.ignoredEventIds).toHaveLength(1);
+    expect(result.acceptedEventIds).toHaveLength(0);
+  });
+
+  it("rejects npm output pasted as a user prompt", () => {
+    const local = makeService();
+    const result = local.captureAutomation({
+      source: { type: "hook", agent: "claude-code" },
+      events: [
+        {
+          type: "user-prompt",
+          tool: "claude-code",
+          trigger: "hook",
+          content:
+            "npm run dev:api\n\nadded 74 packages, and audited 288 packages in 531ms\n\n52 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities"
+        }
+      ]
+    });
+    expect(result.ignoredEventIds).toHaveLength(1);
+  });
+
+  it("rejects an agent-summary that has no completion verb and is short", () => {
+    const local = makeService();
+    const result = local.captureAutomation({
+      source: { type: "hook", agent: "claude-code" },
+      events: [
+        {
+          type: "agent-summary",
+          tool: "claude-code",
+          trigger: "hook",
+          content: "Port 4317 is already in use. Let me find what is occupying it."
+        }
+      ]
+    });
+    expect(result.ignoredEventIds).toHaveLength(1);
+  });
+
+  it("accepts an agent-summary that contains a completion verb", () => {
+    const local = makeService();
+    const result = local.captureAutomation({
+      source: { type: "hook", agent: "claude-code" },
+      events: [
+        {
+          type: "agent-summary",
+          tool: "claude-code",
+          trigger: "hook",
+          content:
+            "Fixed the port conflict by terminating the stale process (PID 43487). Updated the dev:api startup to verify the port is free before binding."
+        }
+      ]
+    });
+    expect(result.acceptedEventIds).toHaveLength(1);
+  });
+
+  it("does not split a short two-sentence response into individual chunks", () => {
+    const local = makeService();
+    const result = local.ingest({
+      rawContent: "assistant: Port 4317 is already in use. Let me find what is occupying it.",
+      source: { type: "sample", agent: "claude-code" }
+    });
+    const chunking = result.trace.stages.find((stage) => stage.name === "chunking");
+    expect(chunking?.items).toHaveLength(1);
+  });
+
+  it("rejects a standalone question ingested directly", () => {
+    const local = makeService();
+    const result = local.ingest({
+      rawContent:
+        "user: Were you checking that the UserPromptSubmit hook fires and records this conversation?",
+      source: { type: "sample", agent: "claude-code" }
+    });
+    expect(result.stored).toHaveLength(0);
+  });
+
+  it("rejects npm noise lines ingested directly", () => {
+    const local = makeService();
+    const result = local.ingest({
+      rawContent: "user: 52 packages are looking for funding run npm fund for details",
+      source: { type: "sample", agent: "claude-code" }
+    });
+    expect(result.stored).toHaveLength(0);
+  });
+});
+
 describe("automatic capture", () => {
   it("captures durable automation events and annotates replay traces", () => {
     const local = makeService();

@@ -450,16 +450,21 @@ function codeChangeNarrative(event: AutomationEvent): string | undefined {
 
 function looksDurableInstruction(text: string): boolean {
   if (text.length < 40) return false;
-  return /\b(prefer|always|never|avoid|use|keep|remember|when working|project|repo|workflow|style|convention|validation|schema|api|cli|route|tests?)\b/i.test(
-    text
+  return (
+    /\b(prefer|always|never|avoid|keep|remember|workflow|convention|schema)\b/i.test(text) ||
+    /\b(we|i) (always|never|use|prefer|avoid)\b/i.test(text) ||
+    /\buse\b.{1,40}\binstead\b/i.test(text) ||
+    /\bwhen (working|writing|building|adding|editing)\b/i.test(text)
   );
 }
 
 function looksMeaningfulSummary(text: string): boolean {
   if (text.length < 36) return false;
-  return /\b(implemented|added|updated|introduced|changed|moved|refactored|fixed|created|removed|hook|integration|memory|schema|route|command|task|remaining|follow up|unresolved|completed)\b/i.test(
-    text
-  );
+  const hasCompletionVerb =
+    /\b(implemented|added|updated|introduced|changed|moved|refactored|fixed|created|removed|completed|resolved|configured|migrated|deployed)\b/i.test(text);
+  if (hasCompletionVerb) return true;
+  if (text.length < 80) return false;
+  return /\b(remaining|follow up|unresolved|hook|integration|memory|schema|route|command)\b/i.test(text);
 }
 
 function looksMeaningfulCodeChange(text: string, filePaths: string[]): boolean {
@@ -474,7 +479,11 @@ function looksMeaningfulCodeChange(text: string, filePaths: string[]): boolean {
 
 function isLowSignal(text: string): boolean {
   const normalized = normalizeText(text);
-  return normalized.length < 24 || /^(ok|done|thanks|great|looks good|sounds good)$/.test(normalized);
+  if (normalized.length < 24) return true;
+  if (/^(ok|done|thanks|great|looks good|sounds good)$/.test(normalized)) return true;
+  if (/\?$/.test(text.trim())) return true;
+  if (/\b(packages? are looking for funding|found \d+ vulnerabilities|audited \d+ packages|added \d+ packages)\b/i.test(text)) return true;
+  return false;
 }
 
 function isSecretLike(text: string): boolean {
