@@ -1,61 +1,162 @@
 # Agent Memory Devtools
 
-> Debuggable, correctable memory system for AI coding agents.
+> Your AI agent forgets things. This fixes that.
 
-Agent Memory Devtools gives Codex and Claude Code a local memory layer that developers can inspect, replay, and fix. It stores memory in SQLite, keeps retrieval explainable, records replay traces for ingestion and search, and now supports automatic workflow capture for real coding-agent sessions.
+Works with Codex and Claude Code out of the box.
 
-## What Problem This Solves
+Agent Memory Devtools gives coding agents a local memory layer you can inspect, replay, and correct. It stores everything in SQLite, keeps retrieval explainable, and records traces for every capture and search decision.
 
-Coding agents lose useful project context, remember the wrong thing, or make retrieval decisions you cannot inspect. When that happens, developers need answers:
+---
 
-- what did the agent remember?
-- why was it stored?
-- why was it retrieved?
-- what should have been ignored?
-- how do I correct future behavior?
+## What this looks like in practice
 
-## What This Repo Now Supports
+You are mid-session with Codex or Claude Code. The agent makes a retrieval decision you disagree with — or misses something it should have stored. Instead of restarting or hoping it improves, you open the inspector, see exactly why that decision was made, apply feedback, and the agent behaves differently on the next run.
+
+```bash
+# See what was captured and why
+npm run cli:prod -- list
+npm run cli:prod -- replay <trace-id>
+
+# Correct behavior
+npm run cli:prod -- fix forget <memory-id> --rule
+npm run cli:prod -- fix remember <decision-id> --target decision --rule
+```
+
+---
+
+## The problem
+
+Coding agents lose project context across sessions, store things they should ignore, retrieve the wrong memory at the wrong time, and give you no way to understand or fix the behavior. You end up prompting around the problem instead of solving it.
+
+---
+
+## The solution
+
+A local memory pipeline that:
+
+- captures durable signal from real coding sessions (automatically for Claude Code, via watch and checkpoints for Codex)
+- classifies, deduplicates, and ranks memories with deterministic local heuristics
+- records a replay trace for every capture and retrieval decision
+- lets you apply feedback and promote corrections to persistent rules
+- surfaces missing-memory suggestions, confidence reports, and conservative conflict detection
+
+---
+
+## Before vs After
+
+| Before | After |
+|---|---|
+| Agent forgets important project decisions | Durable memories survive across sessions |
+| No idea what the agent remembered or why | Replay traces for every decision |
+| Cannot correct wrong retrieval behavior | Feedback promotes to rules |
+| Black box scoring | Explainable local ranking |
+| Vendor lock-in to hosted memory | SQLite, local-first, no auth |
+
+---
+
+## Who this is for
+
+- Developers using Codex or Claude Code who want persistent, correctable agent memory
+- Teams who need to inspect and debug what an agent stored and why
+- Anyone who has been burned by an agent confidently using the wrong context
+
+---
+
+## Key features
+
+- **Automatic capture** — Claude Code hooks capture prompts, file changes, and task summaries with no manual steps
+- **Watch mode + checkpoints** — Codex sessions use file-change watching and explicit checkpoint capture
+- **Replay traces** — every ingestion and retrieval decision has a step-by-step trace you can inspect
+- **Feedback and rules** — mark a memory to remember or forget; promote corrections to persistent rules
+- **Missing memory analysis** — surface what was likely important but not stored
+- **Confidence reports** — per-memory confidence scores with contributing factors
+- **Conservative conflict detection** — flag contradictory memories without silent overwrites
+- **React inspector UI** — browse, filter, and dismiss conflicts visually
+- **REST API + CLI** — full programmatic access to every feature
+
+---
+
+## Design principles
+
+- SQLite is the source of truth — no hosted sync, no remote vector database
+- Deterministic local heuristics — no LLM calls for retrieval decisions
+- Replay traces are always visible — nothing is a black box
+- Rules come from feedback — not from a config file you maintain by hand
+- Capture is conservative — low-signal chatter and secret-like content are ignored
+
+---
+
+## Try it in 30 seconds
+
+```bash
+npm install
+npm run dev:api &
+npm run dev:web &
+npm run cli:prod -- list
+```
+
+Then open `http://localhost:5173` to explore the inspector UI.
+
+---
+
+## Codex & Claude Code integration
 
 ### Claude Code
 
-Claude Code has a real project hook path in this repo.
+Claude Code has real project hooks wired in `.claude/settings.json`. Once the API is running, hooks automatically capture:
 
-Automatic capture can happen for:
+- durable user prompts (`UserPromptSubmit`)
+- file changes after edit/write tools (`PostToolUse`)
+- task-complete summaries (`TaskCompleted`)
+- end-of-turn assistant summaries (`Stop`)
+- session-end flushes for pending changed files (`SessionEnd`)
 
-- durable user prompts
-- changed files after edit/write tools
-- task-complete summaries
-- end-of-turn assistant summaries
+Every captured event flows through the memory pipeline and shows up with a replay trace, source metadata, and the full feedback and rules workflow.
 
-Those events flow through the normal memory pipeline and show up with replay traces, source metadata, and the usual feedback/rules workflow.
+**Setup:**
+
+```bash
+npm run build
+npm run dev:api
+
+# In a new terminal
+npm run cli:prod -- integrate claude
+npm run cli:prod -- hooks status
+```
+
+Open the repo in Claude Code and use `/hooks` to confirm project hooks are active. Work normally — capture is automatic.
 
 ### Codex
 
-Codex does not have a native project hook lifecycle here, so this repo does not fake one.
+Codex works with this repo through repo instructions, a memory-capture skill, file-change watching, and explicit checkpoint commands.
 
-The supported Codex path is: what is this? TODO: clear 
+**Setup:**
 
-- automatic code-change capture through `agent-memory watch`
-- explicit checkpoint capture through `capture changes` or `capture session`
-- repo instructions plus a memory-capture skill so the workflow is obvious inside the repo
+```bash
+npm run cli:prod -- integrate codex
+npm run cli:prod -- watch --tool codex
+```
 
-That makes Codex useful out of the box without inventing unsupported tool behavior.
+At meaningful checkpoints:
 
-## What Is Automatic vs Semi-Automatic
+```bash
+npm run cli:prod -- capture changes --tool codex --summary "what changed and what remains"
+npm run cli:prod -- capture session --summary "durable checkpoint summary" --tool codex
+```
 
-Automatic:
+**What is automatic vs manual:**
 
-- Claude Code hook capture for prompt, file-change, stop, and task-complete events
-- Codex file-change capture when `watch` is running
-- replay traces for automatic capture decisions
+| | Claude Code | Codex |
+|---|---|---|
+| Prompt capture | Automatic (hook) | Manual checkpoint |
+| File-change capture | Automatic (hook) | Automatic (watch) |
+| Task summary | Automatic (hook) | Manual checkpoint |
+| Replay traces | Yes | Yes |
+| Feedback and rules | Yes | Yes |
 
-Semi-automatic:
+---
 
-- Codex checkpoint summaries through CLI commands
-- manual transcript or JSON imports
-- correction with feedback, rules, missing-memory suggestions, confidence, and conflicts
-
-## 60-Second Quickstart
+## Full quickstart
 
 Install dependencies:
 
@@ -75,70 +176,23 @@ Optional UI:
 npm run dev:web
 ```
 
-### Codex Setup
+Then visit `http://localhost:5173`.
 
-```bash
-npm run cli -- integrate codex
-npm run cli -- watch --tool codex
-```
-
-At meaningful checkpoints:
-
-```bash
-npm run cli -- capture changes --tool codex --summary "what changed and what remains"
-```
-
-### Claude Code Setup
-
-Build and start the API (required for hooks):
-
-```bash
-npm run build
-npm run dev:api
-```
-
-In a new terminal, verify hooks:
-
-```bash
-npm run cli:prod -- integrate claude
-npm run cli:prod -- hooks status
-```
-
-Open the repo in Claude Code, use `/hooks` to confirm the project hooks are active, then make a meaningful edit.
-
-The hooks will automatically capture durable prompts, file changes, and task summaries.
+---
 
 ## Verification
 
-Search memory:
-
 ```bash
 npm run cli:prod -- search "automation capture memory"
-```
-
-Inspect the latest replay trace:
-
-```bash
 npm run cli:prod -- replay <trace-id>
-```
-
-List memories:
-
-```bash
 npm run cli:prod -- list
 ```
 
-In the web UI, Memory Explorer now shows whether a memory came from automatic capture and whether the origin was a user prompt, agent summary, or file change.
+The web UI shows whether a memory came from automatic capture and whether the origin was a user prompt, agent summary, or file change.
 
-Start the web UI:
+---
 
-```bash
-npm run dev:web
-```
-
-Then visit `http://localhost:5173`
-
-## CLI Surface
+## CLI reference
 
 **Development mode** (rebuilds dependencies automatically):
 ```bash
@@ -150,7 +204,7 @@ npm run cli -- <command>
 npm run cli:prod -- <command>
 ```
 
-### Core Memory
+### Core memory
 
 ```bash
 npm run cli:prod -- init
@@ -161,7 +215,7 @@ npm run cli:prod -- replay <trace-id>
 npm run cli:prod -- list
 ```
 
-### Automation and Integrations
+### Automation and integrations
 
 ```bash
 npm run cli:prod -- integrate codex
@@ -173,7 +227,7 @@ npm run cli:prod -- capture changes --tool codex --summary "what changed and wha
 npm run cli:prod -- watch --tool codex
 ```
 
-### Correction Loop
+### Correction loop
 
 ```bash
 npm run cli:prod -- fix remember <decision-or-step-id> --target decision --rule
@@ -183,7 +237,9 @@ npm run cli:prod -- confidence show <memory-id>
 npm run cli:prod -- conflicts detect
 ```
 
-## API Surface
+---
+
+## API reference
 
 Health:
 
@@ -215,6 +271,8 @@ Replay:
 curl http://127.0.0.1:4317/replay
 ```
 
+---
+
 ## Architecture
 
 ```text
@@ -230,21 +288,17 @@ packages/memory-core
   store.ts        SQLite store
 ```
 
-## Local-First Design
-
-- SQLite is the source of truth
-- deterministic local embeddings are the default
-- no hosted sync
-- no auth
-- no remote vector database dependency
+---
 
 ## Limitations
 
-- Codex uses repo instructions plus local helpers, not native repo hooks
+- Codex uses repo instructions plus local helpers rather than native repo hooks
 - Claude hook capture requires the local API to be running
-- automation intentionally ignores low-signal chatter and secret-like content
-- the UI still does not have a full rule-management screen
-- conflict resolution in the UI is still dismissal-focused
+- Automation intentionally ignores low-signal chatter and secret-like content
+- The UI does not have a full rule-management screen — rules are created through feedback and exposed through the API and CLI
+- Conflict resolution in the UI is currently dismissal-focused; richer conflict actions are available through the API and CLI
+
+---
 
 ## Docs
 
@@ -255,6 +309,8 @@ packages/memory-core
 - [Demo](DEMO.md)
 - [Roadmap](ROADMAP.md)
 
+---
+
 ## Development
 
 ```bash
@@ -262,234 +318,3 @@ npm run build
 npm test
 npm run lint
 ```
-
-## TypeScript Best Practices
-
-This project uses TypeScript for type safety across the CLI, API, and UI. Follow these practices:
-
-### Zod Schema-First Types
-
-Define schemas in `packages/shared` and infer TypeScript types from them:
-
-```typescript
-// Good - single source of truth
-const MemorySchema = z.object({
-  id: z.string(),
-  content: z.string(),
-  metadata: z.record(z.unknown())
-})
-type Memory = z.infer<typeof MemorySchema>
-
-// Avoid - duplicating structure
-interface Memory {
-  id: string
-  content: string
-  metadata: Record<string, unknown>
-}
-```
-
-### Strict Null Checks
-
-Always handle null and undefined explicitly:
-
-```typescript
-// Good
-function getMemory(id: string): Memory | null {
-  const result = db.query(id)
-  return result ?? null
-}
-
-const memory = getMemory(id)
-if (memory) {
-  console.log(memory.content) // Safe
-}
-
-// Avoid - assuming non-null
-function getMemory(id: string): Memory {
-  return db.query(id)! // Dangerous assertion
-}
-```
-
-### Type Assertions
-
-Avoid `as` assertions unless absolutely necessary. Prefer type guards:
-
-```typescript
-// Good - type guard
-function isMemory(obj: unknown): obj is Memory {
-  return MemorySchema.safeParse(obj).success
-}
-
-if (isMemory(data)) {
-  console.log(data.content) // TypeScript knows it's Memory
-}
-
-// Avoid - blind assertion
-const memory = data as Memory // No runtime validation
-```
-
-### Generic Constraints
-
-Use generic constraints for reusable functions:
-
-```typescript
-// Good
-function findById<T extends { id: string }>(items: T[], id: string): T | null {
-  return items.find(item => item.id === id) ?? null
-}
-
-// Avoid - overly permissive
-function findById(items: any[], id: string): any {
-  return items.find(item => item.id === id)
-}
-```
-
-### Return Type Annotations
-
-Always annotate public function return types:
-
-```typescript
-// Good - explicit contract
-export function searchMemories(query: string): Memory[] {
-  return db.search(query)
-}
-
-// Avoid - implicit return type
-export function searchMemories(query: string) {
-  return db.search(query)
-}
-```
-
-### Discriminated Unions
-
-Use discriminated unions for variant data:
-
-```typescript
-// Good
-type CaptureEvent =
-  | { type: 'user-prompt'; content: string }
-  | { type: 'file-change'; path: string; diff: string }
-  | { type: 'task-complete'; summary: string }
-
-function handleEvent(event: CaptureEvent) {
-  switch (event.type) {
-    case 'user-prompt':
-      return processPrompt(event.content)
-    case 'file-change':
-      return processDiff(event.path, event.diff)
-    case 'task-complete':
-      return processSummary(event.summary)
-  }
-}
-```
-
-### Avoid `any`
-
-Use `unknown` for truly unknown types, then validate:
-
-```typescript
-// Good
-function processData(data: unknown): Memory {
-  const parsed = MemorySchema.parse(data) // Runtime check
-  return parsed
-}
-
-// Avoid
-function processData(data: any): Memory {
-  return data // No safety
-}
-```
-
-### Type Imports
-
-Use type-only imports when importing only types:
-
-```typescript
-// Good
-import type { Memory, ReplayTrace } from '@agent-memory/shared'
-import { MemorySchema } from '@agent-memory/shared'
-
-// Avoid - can cause circular dependencies
-import { Memory, MemorySchema } from '@agent-memory/shared'
-```
-
-## Tailwind Best Practices
-
-The UI (`apps/web`) uses Tailwind CSS. Follow these practices for consistency and maintainability:
-
-### Utility-First Approach
-
-Prefer Tailwind utilities over custom CSS:
-
-```tsx
-// Good
-<div className="flex items-center gap-4 px-6 py-3">
-
-// Avoid
-<div className="custom-container" style={{ display: 'flex' }}>
-```
-
-### Component Extraction
-
-Extract repeated patterns into React components, not `@apply` directives:
-
-```tsx
-// Good
-function Card({ children }) {
-  return <div className="rounded-lg border bg-white p-6 shadow-sm">{children}</div>
-}
-
-// Avoid creating @apply classes in CSS files
-```
-
-### Theme Configuration
-
-Use theme values from `tailwind.config.js` instead of arbitrary values:
-
-```tsx
-// Good - uses theme spacing
-<div className="p-4 gap-2">
-
-// Avoid - arbitrary values should be rare
-<div className="p-[17px] gap-[9px]">
-```
-
-### Responsive Design
-
-Mobile-first responsive utilities:
-
-```tsx
-<div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-```
-
-### Conditional Classes
-
-Use `clsx` or `cn` helper for conditional classes:
-
-```tsx
-import { cn } from '@/lib/utils'
-
-<button className={cn(
-  "px-4 py-2 rounded",
-  isActive && "bg-blue-500 text-white",
-  !isActive && "bg-gray-100 text-gray-700"
-)}>
-```
-
-### Color Consistency
-
-Use semantic color names from the theme:
-
-```tsx
-// Good
-className="text-gray-700 bg-blue-50 border-gray-200"
-
-// Avoid mixing color systems
-className="text-slate-700 bg-blue-50 border-zinc-200"
-```
-
-### Performance
-
-- Group related utilities logically (layout → spacing → colors → typography)
-- Avoid duplicating the same utility combinations across many files
-- Use PurgeCSS-safe dynamic class construction
