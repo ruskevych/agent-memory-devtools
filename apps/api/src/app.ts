@@ -1,7 +1,7 @@
 import cors from "@fastify/cors";
 import Fastify, { FastifyInstance } from "fastify";
 import { AutomationCaptureRequestSchema, IngestRequestSchema, MemoryRuleSchema, MemorySchema, SearchRequestSchema } from "@agent-memory/shared";
-import { defaultDbPath, MemoryService, seedDemoData, SqliteMemoryStore } from "@agent-memory/memory-core";
+import { defaultDbPath, MemoryFilters, MemoryService, seedDemoData, SqliteMemoryStore } from "@agent-memory/memory-core";
 
 export interface ApiOptions {
   dbPath?: string;
@@ -30,10 +30,36 @@ export function createApp(options: ApiOptions = {}): FastifyInstance {
       tag: query.tag,
       sourceType: query.sourceType,
       sessionId: query.sessionId,
+      scope: query.scope,
       includeArchived: query.includeArchived === "true",
       includeMerged: query.includeMerged === "true",
       limit: query.limit ? Number(query.limit) : undefined
     });
+  });
+
+  app.get("/memories/export", async (request, reply) => {
+    const query = request.query as Record<string, string | undefined>;
+    const format = query.format === "markdown" ? "markdown" : "json";
+    const filters: MemoryFilters = {
+      kind: query.kind,
+      tag: query.tag,
+      scope: query.scope,
+      includeArchived: query.includeArchived === "true",
+      includeMerged: query.includeMerged === "true"
+    };
+    const data = service.exportMemories(filters, format);
+    const ext = format === "markdown" ? "md" : "json";
+    const filename = `memories-${new Date().toISOString().slice(0, 10)}.${ext}`;
+    return reply
+      .header("content-type", format === "markdown" ? "text/markdown; charset=utf-8" : "application/json; charset=utf-8")
+      .header("content-disposition", `attachment; filename="${filename}"`)
+      .send(data);
+  });
+
+  app.post("/memories/import", async (request, reply) => {
+    const body = request.body as { data?: string; overwrite?: boolean };
+    if (!body.data) return reply.code(400).send({ error: "data is required" });
+    return service.importMemories(body.data, { overwrite: body.overwrite });
   });
 
   app.post("/memories", async (request, reply) => {

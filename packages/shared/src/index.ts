@@ -55,6 +55,9 @@ export const MemorySourceSchema = z.object({
 });
 export type MemorySource = z.infer<typeof MemorySourceSchema>;
 
+export const MemoryScopeSchema = z.enum(["project", "global"]);
+export type MemoryScope = z.infer<typeof MemoryScopeSchema>;
+
 export const MemorySchema = z.object({
   id: z.string(),
   content: z.string().min(1),
@@ -67,6 +70,7 @@ export const MemorySchema = z.object({
   importance: z.number().min(0).max(1),
   pinned: z.boolean().default(false),
   archived: z.boolean().default(false),
+  scope: MemoryScopeSchema.default("project"),
   duplicateOf: z.string().optional(),
   mergedInto: z.string().optional(),
   relatedSessionId: z.string().optional(),
@@ -371,6 +375,21 @@ export const IngestResponseSchema = z.object({
   trace: ReplayTraceSchema
 });
 export type IngestResponse = z.infer<typeof IngestResponseSchema>;
+
+export const MemoryExportSchema = z.object({
+  version: z.literal("1"),
+  exportedAt: z.string().datetime(),
+  count: z.number().int().nonnegative(),
+  memories: z.array(MemorySchema)
+});
+export type MemoryExport = z.infer<typeof MemoryExportSchema>;
+
+export const MemoryImportResultSchema = z.object({
+  imported: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  errors: z.array(z.string())
+});
+export type MemoryImportResult = z.infer<typeof MemoryImportResultSchema>;
 
 export const AutomationFileChangeSchema = z.object({
   path: z.string(),

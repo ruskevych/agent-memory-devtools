@@ -172,6 +172,7 @@ export class IngestionPipeline {
         source: { ...source, stepId: candidate.sourceStepId },
         tags: unique([candidate.kind, ...candidate.tags]).sort(),
         timestamp,
+        scope: "project",
         confidence: candidate.confidence,
         importance: candidate.importance,
         pinned: candidate.kind === "preference" && candidate.importance > 0.72,

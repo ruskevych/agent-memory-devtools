@@ -1,4 +1,4 @@
-import { FormEvent, MouseEvent, ReactElement, ReactNode, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, MouseEvent, ReactElement, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   DashboardStats,
   Memory,
@@ -46,6 +46,7 @@ export function App(): ReactElement {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState("");
   const [tag, setTag] = useState("");
+  const [scope, setScope] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [apiUrl, setApiUrl] = useState(api.baseUrl);
 
@@ -60,7 +61,7 @@ export function App(): ReactElement {
       setStatus("online");
       const [nextStats, nextMemories, nextSessions, nextTraces] = await Promise.all([
         api.stats(),
-        api.memories({ q: query, kind, tag, includeArchived: showArchived, includeMerged: showArchived }),
+        api.memories({ q: query, kind, tag, scope, includeArchived: showArchived, includeMerged: showArchived }),
         api.sessions(),
         api.traces()
       ]);
@@ -82,7 +83,7 @@ export function App(): ReactElement {
 
   useEffect(() => {
     if (page === "memories") void refresh();
-  }, [kind, tag, showArchived]);
+  }, [kind, tag, scope, showArchived]);
 
   useEffect(() => {
     if (!selectedMemory) {
@@ -253,6 +254,32 @@ export function App(): ReactElement {
     }
   }
 
+  async function exportMemories(format: "json" | "markdown"): Promise<void> {
+    try {
+      const blob = await api.exportMemories({ format, scope });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `memories-${new Date().toISOString().slice(0, 10)}.${format === "markdown" ? "md" : "json"}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setMessage(`Exported memories as ${format}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Export failed");
+    }
+  }
+
+  async function importMemoriesFile(file: File, overwrite: boolean): Promise<void> {
+    try {
+      const data = await file.text();
+      const result = await api.importMemories(data, overwrite);
+      setMessage(`Imported ${result.imported} memories, skipped ${result.skipped}${result.errors.length ? `, ${result.errors.length} error(s)` : ""}.`);
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Import failed");
+    }
+  }
+
   async function openSession(id: string): Promise<void> {
     try {
       const [session, missing] = await Promise.all([api.session(id), api.missing(id).catch(() => [])]);
@@ -412,12 +439,15 @@ export function App(): ReactElement {
             tag={tag}
             setTag={setTag}
             tags={allTags}
+            scope={scope}
+            setScope={setScope}
             showArchived={showArchived}
             setShowArchived={setShowArchived}
             selected={selectedMemory}
             setSelected={setSelectedMemory}
             onPin={(memory) => void updateMemory(memory, { pinned: !memory.pinned })}
             onArchive={(memory) => void updateMemory(memory, { archived: !memory.archived })}
+            onScope={(memory) => void updateMemory(memory, { scope: (memory.scope ?? "project") === "global" ? "project" : "global" })}
             onDelete={(memory) => void deleteMemory(memory)}
             onMerge={(memory, targetId) => void mergeMemory(memory, targetId)}
             onFix={(memory, type, patch, createRule) => void fixMemory(memory, type, patch, createRule)}
@@ -429,6 +459,8 @@ export function App(): ReactElement {
             onResolveConflict={(id) => void resolveConflict(id)}
             retrievalResults={retrievalResults}
             onSampleSearch={(value) => void trySampleSearch(value)}
+            onExport={(format) => void exportMemories(format)}
+            onImport={(file, overwrite) => void importMemoriesFile(file, overwrite)}
           />
         )}
         {page === "sessions" && (
@@ -613,12 +645,15 @@ function MemoryExplorer(props: {
   tag: string;
   setTag: (value: string) => void;
   tags: string[];
+  scope: string;
+  setScope: (value: string) => void;
   showArchived: boolean;
   setShowArchived: (value: boolean) => void;
   selected: Memory | null;
   setSelected: (memory: Memory | null) => void;
   onPin: (memory: Memory) => void;
   onArchive: (memory: Memory) => void;
+  onScope: (memory: Memory) => void;
   onDelete: (memory: Memory) => void;
   onMerge: (memory: Memory, targetId: string) => void;
   onFix: (memory: Memory, type: string, patch?: Record<string, unknown>, createRule?: boolean) => void;
@@ -630,10 +665,19 @@ function MemoryExplorer(props: {
   onResolveConflict: (id: string) => void;
   retrievalResults: RetrievalResult[];
   onSampleSearch: (query: string) => void;
+  onExport: (format: "json" | "markdown") => void;
+  onImport: (file: File, overwrite: boolean) => void;
 }): ReactElement {
   const explanationById = new Map(props.retrievalResults.map((result) => [result.memory.id, result]));
   const [mergeTargetId, setMergeTargetId] = useState("");
+  const [importOverwrite, setImportOverwrite] = useState(false);
   const selectedConflictIds = new Set(props.conflicts.filter((conflict) => props.selected?.id && conflict.memoryIds.includes(props.selected.id)).map((conflict) => conflict.id));
+
+  function handleImportFile(event: ChangeEvent<HTMLInputElement>): void {
+    const file = event.target.files?.[0];
+    if (file) props.onImport(file, importOverwrite);
+    event.target.value = "";
+  }
 
   return (
     <section className="explorer">
@@ -659,11 +703,28 @@ function MemoryExplorer(props: {
             <option key={tag} value={tag}>{tag}</option>
           ))}
         </select>
+        <select value={props.scope} onChange={(event) => props.setScope(event.target.value)} aria-label="Filter by scope">
+          <option value="">All scopes</option>
+          <option value="project">Project</option>
+          <option value="global">Global</option>
+        </select>
         <label className="toggle">
           <input type="checkbox" checked={props.showArchived} onChange={(event) => props.setShowArchived(event.target.checked)} />
           Include archived
         </label>
         <span className="count">{props.memories.length} memories</span>
+        <div className="export-import">
+          <button title="Export as JSON" onClick={() => props.onExport("json")}>Export JSON</button>
+          <button title="Export as Markdown" onClick={() => props.onExport("markdown")}>Export MD</button>
+          <label className="import-btn" title="Import from JSON export file">
+            Import
+            <input type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
+          </label>
+          <label className="toggle" title="Overwrite existing memories on import">
+            <input type="checkbox" checked={importOverwrite} onChange={(e) => setImportOverwrite(e.target.checked)} />
+            Overwrite
+          </label>
+        </div>
       </div>
 
       <div className="sample-strip">
@@ -695,6 +756,7 @@ function MemoryExplorer(props: {
                         <strong>{memory.summary}</strong>
                         <small>{memory.content}</small>
                         <StateBadges memory={memory} />
+                        {(memory.scope ?? "project") === "global" && <span className="badge badge-global">Global</span>}
                         <AutomationBadge memory={memory} />
                         <ConfidenceBadge memory={memory} conflicts={props.conflicts} />
                       </td>
@@ -748,6 +810,12 @@ function MemoryExplorer(props: {
               <div className="actions">
                 <button onClick={() => props.onPin(props.selected!)}>{props.selected.pinned ? "Unpin" : "Pin"}</button>
                 <button onClick={() => props.onArchive(props.selected!)}>{props.selected.archived ? "Restore" : "Archive"}</button>
+                <button
+                  title={(props.selected.scope ?? "project") === "global" ? "Make project-scoped" : "Make global (applies across projects)"}
+                  onClick={() => props.onScope(props.selected!)}
+                >
+                  {(props.selected.scope ?? "project") === "global" ? "Make Project" : "Make Global"}
+                </button>
                 <button className="danger" onClick={() => props.onDelete(props.selected!)}>Delete</button>
               </div>
 

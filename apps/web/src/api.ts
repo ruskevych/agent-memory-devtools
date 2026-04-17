@@ -5,6 +5,7 @@ import {
   MemoryConfidenceReport,
   MemoryConflict,
   MemoryFeedback,
+  MemoryImportResult,
   MemoryRule,
   MissingMemorySuggestion,
   ReplayTrace,
@@ -126,6 +127,18 @@ export class ApiClient {
     return this.request(`/conflicts/${id}/resolve`, { method: "POST", body: JSON.stringify(body) });
   }
 
+  exportMemories(params: Record<string, string | boolean | undefined> = {}): Promise<Blob> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== "" && value !== false) query.set(key, String(value));
+    }
+    return this.requestBlob(`/memories/export?${query.toString()}`);
+  }
+
+  importMemories(data: string, overwrite = false): Promise<MemoryImportResult> {
+    return this.request("/memories/import", { method: "POST", body: JSON.stringify({ data, overwrite }) });
+  }
+
   seed(): Promise<{ ok: boolean; sessions: Session[]; memories: Memory[]; traces: ReplayTrace[] }> {
     return this.request("/dev/seed", { method: "POST", body: JSON.stringify({}) });
   }
@@ -154,5 +167,11 @@ export class ApiClient {
       throw new Error(`${response.status} ${response.statusText}`);
     }
     return (await response.json()) as T;
+  }
+
+  private async requestBlob(path: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}${path}`);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return response.blob();
   }
 }

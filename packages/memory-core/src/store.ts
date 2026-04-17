@@ -46,6 +46,7 @@ export interface MemoryFilters {
   includeArchived?: boolean;
   includeMerged?: boolean;
   sessionId?: string;
+  scope?: string;
   limit?: number;
 }
 
@@ -142,6 +143,7 @@ export class SqliteMemoryStore implements MemoryStore {
       if (filters.tag && !memory.tags.includes(filters.tag)) return false;
       if (filters.sourceType && memory.source.type !== filters.sourceType) return false;
       if (filters.sessionId && memory.relatedSessionId !== filters.sessionId) return false;
+      if (filters.scope && (memory.scope ?? "project") !== filters.scope) return false;
       if (filters.query) {
         const haystack = `${memory.content} ${memory.summary} ${memory.tags.join(" ")}`.toLowerCase();
         if (!haystack.includes(filters.query.toLowerCase())) return false;

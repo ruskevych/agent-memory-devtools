@@ -11,9 +11,12 @@ import {
   Memory,
   MemoryConfidenceReport,
   MemoryConflict,
+  MemoryExport,
   MemoryFeedback,
+  MemoryImportResult,
   MemoryMutation,
   MemoryRule,
+  MemorySchema,
   Metadata,
   MissingMemorySuggestion,
   ReplayTrace,
@@ -92,8 +95,9 @@ export class MemoryService {
     return this.store.getMemory(id);
   }
 
-  createMemory(input: Omit<Memory, "id" | "timestamp"> & { id?: string; timestamp?: string }): Memory {
+  createMemory(input: Omit<Memory, "id" | "timestamp" | "scope"> & { id?: string; timestamp?: string; scope?: Memory["scope"] }): Memory {
     const memory: Memory = {
+      scope: "project",
       ...input,
       id: input.id ?? createId("mem"),
       timestamp: input.timestamp ?? nowIso()
@@ -411,6 +415,59 @@ export class MemoryService {
 
   stats(): DashboardStats {
     return this.store.stats();
+  }
+
+  exportMemories(filters?: MemoryFilters, format: "json" | "markdown" = "json"): string {
+    const memories = this.store.listMemories({ ...filters, includeArchived: true, includeMerged: true, limit: 10_000 });
+    if (format === "markdown") return this.exportMarkdown(memories);
+    const payload: MemoryExport = { version: "1", exportedAt: nowIso(), count: memories.length, memories };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  importMemories(data: string, options: { overwrite?: boolean } = {}): MemoryImportResult {
+    let parsed: { memories?: unknown[] };
+    try {
+      parsed = JSON.parse(data) as { memories?: unknown[] };
+    } catch {
+      return { imported: 0, skipped: 0, errors: ["Invalid JSON"] };
+    }
+    const items = Array.isArray(parsed.memories) ? parsed.memories : [];
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    for (const item of items) {
+      const result = MemorySchema.safeParse(item);
+      if (!result.success) {
+        errors.push(`Parse error: ${result.error.message}`);
+        continue;
+      }
+      const memory = result.data;
+      if (this.store.getMemory(memory.id) && !options.overwrite) {
+        skipped++;
+        continue;
+      }
+      this.store.upsertMemory({ ...memory, source: { ...memory.source, type: "import" } });
+      imported++;
+    }
+    return { imported, skipped, errors };
+  }
+
+  private exportMarkdown(memories: Memory[]): string {
+    const lines = ["# Agent Memory Export", `> Exported ${nowIso()}`, ""];
+    for (const memory of memories) {
+      lines.push(`## ${memory.summary}`);
+      lines.push(`- **Kind**: ${memory.kind}`);
+      lines.push(`- **Scope**: ${memory.scope ?? "project"}`);
+      lines.push(`- **Confidence**: ${memory.confidence.toFixed(2)}`);
+      if (memory.tags.length) lines.push(`- **Tags**: ${memory.tags.join(", ")}`);
+      if (memory.pinned) lines.push("- **Pinned**: yes");
+      lines.push("");
+      lines.push(memory.content);
+      lines.push("");
+      lines.push("---");
+      lines.push("");
+    }
+    return lines.join("\n");
   }
 
   mutations(memoryId?: string): MemoryMutation[] {

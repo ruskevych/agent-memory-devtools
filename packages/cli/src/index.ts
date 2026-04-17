@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { watch as fsWatch, readFileSync, existsSync } from "node:fs";
+import { watch as fsWatch, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Command } from "commander";
@@ -100,20 +100,66 @@ program
   .command("list")
   .option("--archived", "Include archived memories")
   .option("--kind <kind>", "Filter by memory kind")
+  .option("--scope <scope>", "Filter by scope: project or global")
   .description("List stored memories")
-  .action(async (options: { archived?: boolean; kind?: string }) => {
+  .action(async (options: { archived?: boolean; kind?: string; scope?: string }) => {
     const query = new URLSearchParams();
     if (options.archived) query.set("includeArchived", "true");
     if (options.kind) query.set("kind", options.kind);
+    if (options.scope) query.set("scope", options.scope);
     const memories = await withApiFallback("GET", `/memories?${query.toString()}`, undefined, () =>
-      localCapture((service) => service.listMemories({ includeArchived: options.archived, kind: options.kind }))
+      localCapture((service) => service.listMemories({ includeArchived: options.archived, kind: options.kind, scope: options.scope }))
     );
     for (const memory of memories) {
-      const flags = [memory.pinned ? "pinned" : "", memory.archived ? "archived" : "", memory.mergedInto ? `merged:${memory.mergedInto}` : ""]
+      const scopeTag = (memory.scope ?? "project") === "global" ? "global" : "";
+      const flags = [memory.pinned ? "pinned" : "", memory.archived ? "archived" : "", memory.mergedInto ? `merged:${memory.mergedInto}` : "", scopeTag]
         .filter(Boolean)
         .join(", ");
       console.log(`${memory.id}  ${memory.kind}  ${memory.summary}${flags ? ` [${flags}]` : ""}`);
     }
+  });
+
+program
+  .command("export")
+  .option("--format <format>", "Output format: json or markdown", "json")
+  .option("--output <file>", "Write to file instead of stdout")
+  .option("--scope <scope>", "Export only project or global memories")
+  .option("--kind <kind>", "Export only memories of this kind")
+  .description("Export memories to JSON or Markdown")
+  .action(async (options: { format: string; output?: string; scope?: string; kind?: string }) => {
+    const format = options.format === "markdown" ? "markdown" : "json";
+    const query = new URLSearchParams({ format });
+    if (options.scope) query.set("scope", options.scope);
+    if (options.kind) query.set("kind", options.kind);
+    const apiUrl = program.opts<{ api: string }>().api;
+    let data: string;
+    try {
+      const response = await fetch(`${apiUrl}/memories/export?${query.toString()}`, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) throw new Error(`${response.status}`);
+      data = await response.text();
+    } catch {
+      data = localCapture((service) => service.exportMemories({ scope: options.scope, kind: options.kind }, format));
+    }
+    if (options.output) {
+      writeFileSync(options.output, data, "utf8");
+      console.log(`Exported to ${options.output}`);
+    } else {
+      process.stdout.write(data);
+    }
+  });
+
+program
+  .command("import")
+  .argument("<file>", "JSON export file to import")
+  .option("--overwrite", "Overwrite memories with matching ids")
+  .description("Import memories from a JSON export file")
+  .action(async (file: string, options: { overwrite?: boolean }) => {
+    const data = readFileSync(file, "utf8");
+    const body = { data, overwrite: Boolean(options.overwrite) };
+    const result = await withApiFallback("POST", "/memories/import", body, () =>
+      localCapture((service) => service.importMemories(data, { overwrite: options.overwrite }))
+    );
+    console.log(`Imported ${result.imported}, skipped ${result.skipped}${result.errors.length ? `, errors: ${result.errors.join("; ")}` : ""}`);
   });
 
 const session = program.command("session").description("Session commands");
