@@ -3,60 +3,61 @@ name: memory-capture
 description: Use when Claude Code work should create, verify, or correct local memory capture in Agent Memory Devtools.
 ---
 
-# Memory Capture Workflow
+# Memory-Capture Skill – Agent Memory Devtools
 
-Claude Code in this repo should use the committed project hooks for automatic capture and the CLI for explicit checkpoints or correction.
+You are using **Agent Memory Devtools** — a local SQLite memory layer that is the single source of truth for durable project knowledge.
 
-## What Is Automatic
+**Goal:** Make every new request start with perfect context and end with perfect memory updates.
 
-Project hooks can automatically capture:
+## 1. Memory Using (New Request Workflow – ALWAYS do this first)
 
-- durable user prompts
-- changed files after edit/write tool use
-- task-complete summaries
-- end-of-turn assistant summaries
+At the very beginning of every new user request or task:
 
-These captures stay local and produce replay traces through the normal memory pipeline.
+1. Run a targeted memory search:
+   ```bash
+   npm run cli:prod -- search "<2-4 most important keywords from the request>" --limit 8
+   ```
+   Example: `npm run cli:prod -- search "automation capture CLI hooks" --limit 8`
 
-## What Is Still Explicit
+2. If the search returns anything relevant, also check the latest replay trace:
+   ```bash
+   npm run cli:prod -- replay <trace-id-from-search>
+   ```
 
-Use manual capture when you need to:
+3. Read the returned memories before you think or plan. Explicitly reference them in your reasoning (e.g. "From memory ID 42 we already decided X…").
 
-- import an older transcript or JSON session
-- capture a checkpoint from outside Claude Code
-- force a code-change checkpoint immediately
-- inspect or repair a capture result
+4. If the search shows missing context you know should exist, immediately run:
+   ```bash
+   npm run cli:prod -- analyze-missing <session-id-if-known> --refresh
+   ```
 
-## Commands
+Never rely on your own internal knowledge alone when a memory exists.
 
-Verify hook configuration:
+## 2. Memory Saving (Capture Workflow)
 
-```bash
-npm run cli -- hooks status
-```
+For Claude Code, **project hooks are automatic** — they already capture:
+- Durable `UserPromptSubmit` prompts
+- `PostToolUse` edit/write activity
+- `TaskCompleted` summaries
+- `Stop` event summaries
 
-Force a checkpoint capture:
-
-```bash
-npm run cli -- capture changes --tool claude-code --summary "what changed and what remains"
-```
-
-Manual checkpoint text:
-
-```bash
-npm run cli -- capture session --summary "durable checkpoint summary" --tool claude-code
-```
-
-Inspect replay:
+Only add an explicit capture if you made a high-importance decision the hooks might miss:
 
 ```bash
-npm run cli -- replay <trace-id>
+npm run cli:prod -- capture changes --tool claude-code --summary "Concise one-line description of what changed and why it matters"
+npm run cli:prod -- capture session --summary "Durable checkpoint: key decisions, preferences, and remaining work" --tool claude-code
 ```
 
-## Correction Loop
+If you spot a bad capture or something that should have been stored, fix it immediately:
 
-If the automatic capture was wrong:
+```bash
+npm run cli:prod -- fix remember <memory-or-decision-id> --rule
+npm run cli:prod -- fix forget <memory-id> --rule
+```
 
-1. inspect the replay trace
-2. apply feedback or rules
-3. re-run capture only when there is genuinely new durable context
+## 3. Golden Rules
+
+- **Search first, act second.** Never plan without checking memory.
+- **Capture last.** Hooks handle most of it — add explicit captures only for high-importance decisions.
+- **Use replay traces** whenever you want to understand why something was or wasn't stored.
+- **Prefer memory over repetition.** If the answer is already in memory, say "Per existing memory ID X: …" instead of re-explaining.

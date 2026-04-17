@@ -3,73 +3,66 @@ name: memory-capture
 description: Use when a Codex task changes durable repo behavior, introduces important codebase context, or reaches a meaningful checkpoint that should become memory.
 ---
 
-# Memory Capture Workflow
+# Memory-Capture Skill – Agent Memory Devtools
 
-Use this skill when work in Agent Memory Devtools should update local memory for future Codex sessions.
+You are using **Agent Memory Devtools** — a local SQLite memory layer that is the single source of truth for durable project knowledge.
 
-## Goal
+**Goal:** Make every new request start with perfect context and end with perfect memory updates.
 
-Keep Codex memory capture explicit, local, and auditable.
+## 1. Memory Using (New Request Workflow – ALWAYS do this first)
 
-Codex does not get a fake native hook story in this repo. The supported path is:
+At the very beginning of every new user request or task:
 
-- automatic file-change capture through `agent-memory watch`
-- explicit checkpoint capture through CLI commands
-- replay, feedback, and rules for correction
+1. Run a targeted memory search:
+   ```bash
+   npm run cli:prod -- search "<2-4 most important keywords from the request>" --limit 8
+   ```
+   Example: `npm run cli:prod -- search "automation capture CLI hooks" --limit 8`
 
-## When To Capture
+2. If the search returns anything relevant, also check the latest replay trace:
+   ```bash
+   npm run cli:prod -- replay <trace-id-from-search>
+   ```
 
-Capture after:
+3. Read the returned memories before you think or plan. Explicitly reference them in your reasoning (e.g. "From memory ID 42 we already decided X…").
 
-- durable user or repo preferences
-- meaningful codebase changes
-- new commands, routes, schemas, or workflow conventions
-- unresolved follow-up work
-- task completion summaries that future agent sessions will need
+4. If the search shows missing context you know should exist, immediately run:
+   ```bash
+   npm run cli:prod -- analyze-missing <session-id-if-known> --refresh
+   ```
 
-Do not capture:
+Never rely on your own internal knowledge alone when a memory exists.
 
-- trivial chatter
-- tiny edits with no durable effect
-- repeated status updates with no new project context
+## 2. Memory Saving (Capture Workflow – you must be explicit)
 
-## Commands
-
-Start the local API:
-
-```bash
-npm run dev:api
-```
-
-Strongest automatic path for Codex:
+Codex has no automatic hooks. After file changes or architecture decisions:
 
 ```bash
-npm run cli -- watch --tool codex
+npm run cli:prod -- capture changes --tool codex --summary "Concise one-line description of what changed and why it matters"
 ```
 
-Checkpoint capture after meaningful work:
+At the end of a task or session:
 
 ```bash
-npm run cli -- capture changes --tool codex --summary "what changed and what remains"
+npm run cli:prod -- capture session --tool codex --summary "Durable checkpoint: key decisions, preferences, and remaining work"
 ```
 
-Manual session/checkpoint capture:
+Best-practice capture rules:
+- Use the memory kinds the system expects: `fact`, `preference`, `codebase-context`, `task-context`.
+- Write actionable, future-proof summaries — someone reading this in 3 months should understand it instantly.
+- Attach evidence: changed files, routes, schemas, CLI commands.
+
+If you spot a bad capture or something that should have been stored, fix it immediately:
 
 ```bash
-npm run cli -- capture session --summary "durable preference, handoff, or checkpoint summary" --tool codex
+npm run cli:prod -- fix remember <memory-or-decision-id> --rule
+npm run cli:prod -- fix forget <memory-id> --rule
 ```
 
-Inspect what was stored:
+## 3. Golden Rules
 
-```bash
-npm run cli -- replay <trace-id>
-npm run cli -- search "memory query"
-```
-
-## Review Loop
-
-After capture:
-
-1. Inspect the replay trace.
-2. Check whether the memory came from prompt, summary, or file change.
-3. If capture was wrong, use feedback or missing-memory analysis instead of editing docs to paper over it.
+- **Search first, act second.** Never plan without checking memory.
+- **Capture last.** Never end a turn without a capture if you touched code, made a decision, or changed workflow.
+- **Be explicit.** Watch mode is conservative — it only stores strong signals. When something is truly important, capture it manually with a clear summary.
+- **Use replay traces** whenever you want to understand why something was or wasn't stored.
+- **Prefer memory over repetition.** If the answer is already in memory, say "Per existing memory ID X: …" instead of re-explaining.
