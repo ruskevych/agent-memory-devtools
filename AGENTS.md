@@ -25,7 +25,15 @@ Use the same product terms everywhere:
 
 Codex does not have a native project hook lifecycle here. Do not pretend it does.
 
-Supported path:
+**At the start of every session, run this first:**
+
+```bash
+npm run cli:prod -- context "keywords from your current task"
+```
+
+This retrieves relevant memory and prints a digest. Read it before planning anything.
+
+Supported capture path:
 
 - automatic code-change capture through `npm run cli -- watch --tool codex`
 - explicit checkpoint capture through `npm run cli -- capture changes --tool codex --summary "..."`

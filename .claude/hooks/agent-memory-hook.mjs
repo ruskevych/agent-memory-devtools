@@ -25,6 +25,14 @@ if (mode === "user-prompt") {
   process.exit(0);
 }
 
+if (mode === "user-prompt-context") {
+  const prompt = typeof input.prompt === "string" ? input.prompt : "";
+  if (!prompt.trim()) process.exit(0);
+  const context = await retrieveContext(prompt);
+  if (context) process.stdout.write(JSON.stringify({ context }));
+  process.exit(0);
+}
+
 if (mode === "post-tool") {
   const next = pendingState();
   for (const filePath of extractPaths(input.tool_input, workspaceRoot)) {
@@ -216,6 +224,29 @@ function fileHash(filePath) {
     return createHash("sha256").update(readFileSync(filePath)).digest("hex");
   } catch {
     return "unreadable";
+  }
+}
+
+async function retrieveContext(query) {
+  try {
+    const response = await fetch(`${apiUrl}/search`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query, limit: 5 })
+    });
+    if (!response.ok) return "";
+    const data = await response.json();
+    const results = Array.isArray(data.results) ? data.results : [];
+    if (!results.length) return "";
+    const lines = results.map((r) => {
+      const score = typeof r.score === "number" ? ` (${r.score.toFixed(2)})` : "";
+      const kind = r.memory?.kind ? `[${r.memory.kind}] ` : "";
+      const content = r.memory?.summary || r.memory?.content || "";
+      return `• ${kind}${content}${score}`;
+    });
+    return `Relevant project memory:\n${lines.join("\n")}`;
+  } catch {
+    return "";
   }
 }
 

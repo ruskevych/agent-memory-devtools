@@ -25,6 +25,16 @@ export function claudeHookSettings(): Record<string, unknown> {
           hooks: [
             {
               type: "command",
+              command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/agent-memory-hook.mjs" user-prompt-context',
+              timeout: 8,
+              statusMessage: "Loading relevant memory context"
+            }
+          ]
+        },
+        {
+          hooks: [
+            {
+              type: "command",
               command: 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/agent-memory-hook.mjs" user-prompt',
               async: true,
               timeout: 20,

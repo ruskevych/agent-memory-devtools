@@ -33,6 +33,8 @@ export const COMPLETION_VERBS = [
   "exported", "imported", "injected",
   // complete
   "completed", "finalized", "finished",
+  // sync / onboard
+  "synced", "synchronized", "initialized", "onboarded", "bootstrapped", "set up",
 ] as const;
 
 // Phrases that turn a user prompt into a durable instruction.
@@ -56,6 +58,13 @@ export const DURABLE_INSTRUCTION_PHRASES = [
   /\bswitch(ing)? (from|to)\b/i,
   /\bwhen (working|writing|building|adding|editing|implementing|creating|handling|dealing|touching|reviewing)\b/i,
   /\b(make sure|don't forget|from now on|going forward|every time|whenever|each time)\b/i,
+  // Decision reasoning — captures architectural choices and their rationale
+  /\b(chose|choosing|decided|went with|going with|picked)\b.{1,80}\bbecause\b/i,
+  /\b(decided|choosing|went) against\b/i,
+  /\b(chose|went with|picked)\b.{1,60}\bover\b/i,
+  /\bthe (reason|rationale|tradeoff|decision) (is|was|being|here)\b/i,
+  /\b(approach|architecture|design|structure) (is|was) (to|that)\b/i,
+  /\bwe (ruled out|rejected|dropped|skipped)\b/i,
 ] as const;
 
 // Words that signal unresolved or continuation work.

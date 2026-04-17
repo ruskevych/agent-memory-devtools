@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { watch as fsWatch, readFileSync, existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -6,6 +7,7 @@ import { AutomationCaptureRequest, AutomationEventInput, AutomationEventType, In
 import { defaultDbPath, MemoryService, seedDemoData, SqliteMemoryStore } from "@agent-memory/memory-core";
 import { buildFileChangeEvent } from "./change-capture.js";
 import { detectIntegrationStatus, installClaudeHooks } from "./integration.js";
+import { onboard } from "./onboard.js";
 
 function findWorkspaceRoot(startDir: string): string {
   let current = startDir;
@@ -68,6 +70,28 @@ program
       console.log(`${index + 1}. ${item.memory.summary} (${item.memory.kind}, score ${item.score.toFixed(3)})`);
       console.log(`   why: ${item.explanation.reason}`);
       if (item.explanation.matchedTerms.length) console.log(`   matched: ${item.explanation.matchedTerms.join(", ")}`);
+    }
+    console.log(`Trace: ${result.trace.id}`);
+  });
+
+program
+  .command("context")
+  .argument("[query]", "Optional query; defaults to a general project context digest")
+  .option("-l, --limit <number>", "Number of memories to surface", "6")
+  .description("Retrieve and print relevant memory context — run this at the start of any session")
+  .action(async (query: string | undefined, options: { limit: string }) => {
+    const q = query?.trim() || "project preferences workflow decisions architecture";
+    const request: SearchRequest = { query: q, limit: Number(options.limit), includeArchived: false };
+    const result = await withApiFallback("POST", "/search", request, () => localCapture((service) => service.search(request)));
+    if (!result.results.length) {
+      console.log("No relevant memories found.");
+      return;
+    }
+    console.log("=== Relevant project memory ===");
+    for (const item of result.results) {
+      const score = item.score.toFixed(2);
+      console.log(`[${item.memory.kind}] ${item.memory.summary} (${score})`);
+      if (item.explanation.matchedTerms.length) console.log(`  matched: ${item.explanation.matchedTerms.join(", ")}`);
     }
     console.log(`Trace: ${result.trace.id}`);
   });
@@ -511,6 +535,34 @@ conflicts
       })
     );
     console.log(`${result.id}  ${result.status}`);
+  });
+
+program
+  .command("onboard")
+  .option("--dir <path>", "Target project directory", process.cwd())
+  .option("--force", "Overwrite existing files")
+  .description("Set up a new project with Claude Code hooks, hook script, and adaptive memory-capture skills")
+  .action((options: { dir: string; force?: boolean }) => {
+    const result = onboard(options.dir, Boolean(options.force));
+    if (result.created.length) {
+      console.log("Files created:");
+      for (const rel of result.created) console.log(`  • ${rel}`);
+    }
+    if (result.skipped.length) {
+      console.log("Files skipped (already exist — use --force to overwrite):");
+      for (const rel of result.skipped) console.log(`  • ${rel}`);
+    }
+    if (!result.created.length) {
+      console.log("Nothing to do — all files already exist. Run with --force to overwrite.");
+      return;
+    }
+    console.log(`
+Open this project in Claude Code or Codex and send this prompt:
+
+  sync memory skill with this project
+
+The AI will read your codebase and make memory capture project-specific.
+Memory hooks are active from the first prompt once the API is running.`);
   });
 
 const integrate = program.command("integrate").description("Project integration helpers");
